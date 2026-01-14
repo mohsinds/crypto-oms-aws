@@ -26,10 +26,11 @@ resource "aws_msk_cluster" "main" {
   }
 
   encryption_info {
-    encryption_at_rest_kms_key_id = var.kms_key_id
+    encryption_at_rest_kms_key_arn = var.kms_key_id
+    
     encryption_in_transit {
       client_broker = "TLS"
-      in_cluster   = true
+      in_cluster    = true
     }
   }
 
