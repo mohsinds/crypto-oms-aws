@@ -1,0 +1,99 @@
+# ============================================================================
+# TERRAFORM VARIABLES - EXAMPLE CONFIGURATION
+# ============================================================================
+# Copy this file to terraform.tfvars and customize for your environment
+# DO NOT commit terraform.tfvars to version control (contains sensitive data)
+# ============================================================================
+
+# ============================================================================
+# PROJECT CONFIGURATION
+# ============================================================================
+
+project_name = "crypto-oms"
+environment  = "dev"
+aws_region   = "us-east-1"
+
+# ============================================================================
+# NETWORKING
+# ============================================================================
+
+vpc_cidr                 = "10.0.0.0/16"
+availability_zones_count  = 2  # Use 2 AZs for dev (cost optimization)
+enable_nat_gateway        = true
+single_nat_gateway        = true  # Use 1 NAT Gateway instead of 3 (saves ~$64/month)
+enable_vpc_endpoints      = true  # Reduces NAT Gateway data transfer costs
+
+# ============================================================================
+# EKS CONFIGURATION
+# ============================================================================
+
+eks_version              = "1.28"
+eks_node_instance_types  = ["t3.small"]  # Smaller instance for dev
+eks_node_desired_size    = 1   # Start with 1 node
+eks_node_min_size        = 1
+eks_node_max_size        = 3
+use_spot_instances       = false  # Don't use for learning (can be interrupted)
+
+# ============================================================================
+# MSK (KAFKA) CONFIGURATION
+# ============================================================================
+# MOST EXPENSIVE COMPONENT - Optimize carefully!
+# ============================================================================
+
+kafka_version        = "3.5.1"
+kafka_instance_type   = "kafka.t3.small"  # Dev: $150/month per broker
+kafka_broker_count   = 2  # Minimum for dev (production: 3+)
+kafka_ebs_volume_size = 50  # Smaller volume for dev
+
+# ============================================================================
+# REDIS CONFIGURATION
+# ============================================================================
+
+redis_node_type       = "cache.t3.micro"  # Dev: ~$12/month
+redis_num_cache_nodes = 1  # No replication for dev
+redis_engine_version  = "7.0"
+
+# ============================================================================
+# DOCUMENTDB CONFIGURATION
+# ============================================================================
+
+documentdb_instance_class = "db.t3.medium"  # Dev: ~$50/month
+documentdb_cluster_size  = 1  # Single instance for dev
+documentdb_engine_version = "5.0.0"
+
+# ============================================================================
+# SECURITY & ENCRYPTION
+# ============================================================================
+
+enable_kms_encryption = true
+
+# ============================================================================
+# MONITORING & LOGGING
+# ============================================================================
+
+enable_monitoring = true
+enable_logging    = true
+
+# ============================================================================
+# TAGS
+# ============================================================================
+
+tags = {
+  Owner      = "Mohsin Rasheed"
+  Purpose    = "Learning"
+  CostCenter = "Personal"
+}
+
+# ============================================================================
+# COST ESTIMATE (Development Configuration)
+# ============================================================================
+# EKS Cluster:        $72/month
+# MSK (2 brokers):    $302/month
+# ElastiCache:        $12/month
+# DocumentDB:         $50/month
+# EC2 (t3.small):     $30/month
+# NAT Gateway (1):    $32/month
+# ALB:                $16/month
+# ────────────────────────────────
+# TOTAL:              ~$514/month
+# ============================================================================
