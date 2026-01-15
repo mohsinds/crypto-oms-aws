@@ -124,6 +124,12 @@ crypto-oms-aws/
 │   ├── STATUS.md               📊 Implementation status & progress
 │   └── TESTING.md              🧪 Testing methodology & verification
 │
+├── tutorials/                   📖 Step-by-Step Tutorials
+│   ├── README.md               📚 Tutorials index
+│   ├── LOCAL_SETUP_MACOS.md    🍎 Local setup guide for macOS
+│   ├── LOCAL_SETUP_WINDOWS.md  🪟 Local setup guide for Windows
+│   └── AWS_DEPLOYMENT.md       ☁️ Complete AWS deployment tutorial
+│
 ├── terraform/                   🏗️ Infrastructure as Code
 │   ├── main.tf                 Main orchestration file
 │   ├── variables.tf            All configurable parameters
@@ -168,19 +174,17 @@ crypto-oms-aws/
 
 ### 🚀 Getting Started
 
-1. **[Architecture Documentation](./docs/ARCHITECTURE.md)** - Start here to understand the system design
+1. **[Tutorials](./tutorials/README.md)** - **START HERE!** Step-by-step guides
+   - **[Local Setup - macOS](./tutorials/LOCAL_SETUP_MACOS.md)** - Run locally on macOS
+   - **[Local Setup - Windows](./tutorials/LOCAL_SETUP_WINDOWS.md)** - Run locally on Windows
+   - **[AWS Deployment](./tutorials/AWS_DEPLOYMENT.md)** - Deploy to AWS (complete guide)
+
+2. **[Architecture Documentation](./docs/ARCHITECTURE.md)** - Understand the system design
    - Infrastructure overview
    - AWS services explained
    - Network architecture
    - Cost optimization strategies
    - Orchestration & destruction guide
-
-2. **[Deployment Guide](./docs/DEPLOYMENT.md)** - Step-by-step AWS setup
-   - AWS account setup
-   - Terraform installation
-   - Infrastructure deployment
-   - Service deployment
-   - Verification steps
 
 3. **[How It Works](./docs/HOW_IT_WORKS.md)** - System operation guide
    - Complete order lifecycle
@@ -234,17 +238,61 @@ crypto-oms-aws/
 
 ## 🎯 Quick Start Guide
 
+### For Local Development
+
+**New to the project?** Start with our comprehensive tutorials:
+
+- **[Local Setup - macOS](./tutorials/LOCAL_SETUP_MACOS.md)** - Complete guide for macOS users
+- **[Local Setup - Windows](./tutorials/LOCAL_SETUP_WINDOWS.md)** - Complete guide for Windows users
+
+These tutorials cover:
+- Installing all required tools (Docker, .NET SDK, Node.js, etc.)
+- Setting up local infrastructure (Redis, Kafka, MongoDB)
+- Running all services locally
+- Testing the complete system
+
+### For AWS Deployment
+
+**Ready to deploy to AWS?** Follow our step-by-step tutorial:
+
+- **[AWS Deployment Tutorial](./tutorials/AWS_DEPLOYMENT.md)** - Complete AWS deployment guide
+
+This tutorial covers:
+- AWS account setup and security
+- Installing AWS CLI, Terraform, kubectl
+- Deploying infrastructure with Terraform
+- Building and pushing Docker images
+- Deploying services to Kubernetes
+- Configuring Application Load Balancer
+- Deploying frontend to S3
+
 ### Prerequisites
 
-- AWS Account (Free Tier eligible)
+**For Local Development**:
+- Docker Desktop
+- .NET 8 SDK
+- Node.js 18+
+- Git
+
+**For AWS Deployment**:
+- AWS Account
 - AWS CLI installed and configured
 - Terraform >= 1.0 installed
-- .NET 8 SDK (for backend development)
-- Node.js 18+ (for frontend development)
-- Docker Desktop (for containerization)
 - kubectl (for Kubernetes)
+- All local development prerequisites
 
-### Step 1: Review Architecture
+### Step 1: Choose Your Path
+
+**Option A: Local Development First (Recommended)**
+1. Follow [Local Setup Tutorial](./tutorials/LOCAL_SETUP_MACOS.md) (macOS) or [Local Setup Tutorial](./tutorials/LOCAL_SETUP_WINDOWS.md) (Windows)
+2. Get familiar with the system locally
+3. Then proceed to AWS deployment
+
+**Option B: Direct AWS Deployment**
+1. Follow [AWS Deployment Tutorial](./tutorials/AWS_DEPLOYMENT.md)
+2. Complete all phases from AWS account setup to service deployment
+
+### Step 2: Review Architecture
 
 Read the [Architecture Documentation](./docs/ARCHITECTURE.md) to understand:
 - What AWS services are used
@@ -252,74 +300,48 @@ Read the [Architecture Documentation](./docs/ARCHITECTURE.md) to understand:
 - Cost implications
 - Infrastructure requirements
 
-### Step 2: Set Up AWS Account
+### Step 3: Follow Tutorials
 
-Follow the [Deployment Guide - Phase 1](./docs/DEPLOYMENT.md#phase-1-aws-account-setup):
-1. Create AWS account
-2. Enable MFA security
-3. Create IAM user with permissions
-4. **Set up billing alarm** (CRITICAL!)
-5. Configure AWS CLI
+**For Local Development**:
+- See [Local Setup Tutorials](./tutorials/) for your operating system
 
-### Step 3: Deploy Infrastructure
+**For AWS Deployment**:
+- See [AWS Deployment Tutorial](./tutorials/AWS_DEPLOYMENT.md) for complete step-by-step guide
 
-Follow the [Deployment Guide - Phase 3](./docs/DEPLOYMENT.md#phase-3-deploy-infrastructure):
-1. Clone repository
-2. Configure `terraform.tfvars`
-3. Run `terraform init`
-4. Run `terraform plan` (review changes)
-5. Run `terraform apply` (deploy infrastructure)
-
-**Estimated Time**: 20-30 minutes  
-**Estimated Cost**: ~$514/month (development config)
-
-### Step 4: Verify Deployment
+### Step 4: Verify and Test
 
 Follow the [Testing Guide](./docs/TESTING.md) to:
-1. Verify resources in Terraform
-2. Verify resources in AWS Console
+1. Verify resources in Terraform (if on AWS)
+2. Verify resources in AWS Console (if on AWS)
 3. Test connectivity
 4. Check logs and metrics
 
-### Step 5: Deploy Services (When Ready)
+### Step 5: Clean Up (Important!)
 
-Follow the [Development Guide](./docs/DEVELOPMENT.md) to:
-1. Build microservices
-2. Create Docker images
-3. Deploy to EKS
-4. Test APIs
-
-### Step 6: Clean Up (Important!)
-
-When done testing, destroy all resources:
+**When done testing on AWS**, destroy all resources:
 ```bash
 cd terraform
-./destroy.sh
-```
-
-Or use Terraform directly:
-```bash
 terraform destroy
 ```
 
-**⚠️ Always destroy resources when not in use to avoid ongoing charges!**
+**⚠️ Always destroy AWS resources when not in use to avoid ongoing charges!**
 
 ---
 
 ## 📊 Current Project Status
 
-**Overall Progress: 30%**
+**Overall Progress: 60%**
 
 | Component | Status | Progress |
 |-----------|--------|----------|
 | **Infrastructure** | ✅ Complete | 100% |
 | **Documentation** | ✅ Complete | 100% |
-| **Order Ingestion API** | ⏳ Not Started | 0% |
-| **Order Processor** | ⏳ Not Started | 0% |
-| **Risk Engine** | ⏳ Not Started | 0% |
-| **Market Data Service** | ⏳ Not Started | 0% |
-| **Frontend** | ⏳ Not Started | 0% |
-| **Kubernetes Manifests** | ⏳ Not Started | 0% |
+| **Order Ingestion API** | ✅ Complete | 95% |
+| **Order Processor** | ✅ Complete | 95% |
+| **Risk Engine** | ✅ Complete | 95% |
+| **Market Data Service** | ✅ Complete | 95% |
+| **Frontend** | ✅ Mostly Complete | 95% |
+| **Kubernetes Manifests** | ✅ Complete | 95% |
 
 **See [Implementation Status](./docs/STATUS.md) for detailed progress tracking.**
 
@@ -405,11 +427,18 @@ After completing this project, you will understand:
 
 ## 📝 Next Steps
 
-1. ✅ **Read [Architecture Documentation](./docs/ARCHITECTURE.md)** - Understand the system
-2. ✅ **Follow [Deployment Guide](./docs/DEPLOYMENT.md)** - Set up AWS and deploy infrastructure
+1. ✅ **Choose Your Path**:
+   - **Local Development**: Follow [Local Setup Tutorial](./tutorials/LOCAL_SETUP_MACOS.md) (macOS) or [Local Setup Tutorial](./tutorials/LOCAL_SETUP_WINDOWS.md) (Windows)
+   - **AWS Deployment**: Follow [AWS Deployment Tutorial](./tutorials/AWS_DEPLOYMENT.md)
+
+2. ✅ **Read [Architecture Documentation](./docs/ARCHITECTURE.md)** - Understand the system
+
 3. ✅ **Read [How It Works](./docs/HOW_IT_WORKS.md)** - Understand order flow
-4. ⏳ **Follow [Development Guide](./docs/DEVELOPMENT.md)** - Build and deploy services
-5. ⏳ **Review [Implementation Status](./docs/STATUS.md)** - Track progress
+
+4. ✅ **Review [Implementation Status](./docs/STATUS.md)** - Track progress
+
+5. ⏳ **Follow [Development Guide](./docs/DEVELOPMENT.md)** - Build and deploy services
+
 6. ⏳ **Use [Testing Guide](./docs/TESTING.md)** - Verify everything works
 
 ---
