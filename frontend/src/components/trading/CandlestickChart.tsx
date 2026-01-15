@@ -19,6 +19,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({ symbol, inte
   const { currentPrice } = useMarketData(symbol);
   const [isChartReady, setIsChartReady] = useState(false);
   const lastPriceUpdateRef = useRef<number>(0);
+  const currentCandleRef = useRef<{ time: number; open: number; high: number; low: number; close: number } | null>(null);
 
   useEffect(() => {
     if (!chartContainerRef.current) {
@@ -27,7 +28,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({ symbol, inte
 
     const container = chartContainerRef.current;
     let chart: IChartApi | null = null;
-    let timeoutId: NodeJS.Timeout | null = null;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
     let resizeHandler: (() => void) | null = null;
 
     // Wait for container to have a width
@@ -117,6 +118,11 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({ symbol, inte
     };
   }, []);
 
+  // Reset current candle when interval or symbol changes
+  useEffect(() => {
+    currentCandleRef.current = null;
+  }, [interval, symbol]);
+
   // Update chart data
   useEffect(() => {
     console.log('Chart data effect triggered:', {
@@ -148,7 +154,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({ symbol, inte
         .map((candle) => {
           const timeInSeconds = Math.floor(candle.timestamp / 1000);
           return {
-            time: timeInSeconds, // Unix timestamp in seconds as number
+            time: timeInSeconds as any, // Unix timestamp in seconds as number
             open: Number(candle.open),
             high: Number(candle.high),
             low: Number(candle.low),
@@ -184,6 +190,16 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({ symbol, inte
         candlestickSeriesRef.current.setData(formattedData);
         console.log('Chart data set successfully');
         
+        // Initialize current candle ref with the last candle
+        const lastCandle = formattedData[formattedData.length - 1];
+        currentCandleRef.current = {
+          time: lastCandle.time,
+          open: lastCandle.open,
+          high: lastCandle.high,
+          low: lastCandle.low,
+          close: lastCandle.close,
+        };
+        
         // Auto-scale to fit data after a short delay to ensure chart is ready
         setTimeout(() => {
           if (chartRef.current) {
@@ -203,33 +219,94 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({ symbol, inte
     }
   }, [data, symbol, interval, isChartReady]);
 
+  // Calculate interval duration in seconds
+  const getIntervalSeconds = (interval: string): number => {
+    switch (interval) {
+      case '1m': return 60;
+      case '5m': return 300;
+      case '15m': return 900;
+      case '1h': return 3600;
+      case '1d': return 86400;
+      default: return 300;
+    }
+  };
+
   // Update latest price in real-time
   useEffect(() => {
-    if (candlestickSeriesRef.current && currentPrice && isChartReady && data && data.length > 0) {
-      const lastCandle = data[data.length - 1] as Candlestick;
-      const lastCandleTime = Math.floor(lastCandle.timestamp / 1000);
-      const now = Math.floor(Date.now() / 1000);
-      
-      // Only update if the new time is strictly after the last candle time
-      // Throttle updates to avoid too frequent updates (every 2 seconds)
-      if (now > lastCandleTime && Date.now() - lastPriceUpdateRef.current > 2000) {
-        try {
-          // Update the last candle with current price
-          candlestickSeriesRef.current.update({
-            time: now as any,
-            open: lastCandle.close,
-            high: Math.max(lastCandle.close, currentPrice),
-            low: Math.min(lastCandle.close, currentPrice),
+    if (!candlestickSeriesRef.current || !currentPrice || !isChartReady || !data || data.length === 0) {
+      return;
+    }
+
+    const now = Math.floor(Date.now() / 1000);
+    const intervalSeconds = getIntervalSeconds(interval);
+    const currentIntervalStart = Math.floor(now / intervalSeconds) * intervalSeconds;
+    
+    // Throttle updates to avoid too frequent updates (every 1 second)
+    if (Date.now() - lastPriceUpdateRef.current < 1000) {
+      return;
+    }
+
+    try {
+      // If we have a current candle ref, check if it's still in the current interval
+      if (currentCandleRef.current) {
+        const candleIntervalStart = Math.floor((currentCandleRef.current.time as number) / intervalSeconds) * intervalSeconds;
+        
+        if (candleIntervalStart === currentIntervalStart) {
+          // Still in the same interval - update the existing candle
+          const updatedCandle = {
+            time: currentIntervalStart as any,
+            open: currentCandleRef.current.open, // Keep original open price
+            high: Math.max(currentCandleRef.current.high, currentPrice),
+            low: Math.min(currentCandleRef.current.low, currentPrice),
             close: currentPrice,
-          });
+          };
+          currentCandleRef.current = updatedCandle;
+          candlestickSeriesRef.current.update(updatedCandle);
           lastPriceUpdateRef.current = Date.now();
-        } catch (error) {
-          // Silently handle update errors (chart might not be ready)
-          console.debug('Chart update skipped:', error);
+          console.log('Updated current candle:', { price: currentPrice, interval: interval, time: currentIntervalStart });
+          return;
+        } else {
+          // Interval changed - need to create a new candle
+          // Use the current candle's close price as the new candle's open price
+          const previousClose = currentCandleRef.current.close;
+          const newCandle = {
+            time: currentIntervalStart as any,
+            open: previousClose, // Use previous candle's close as new open
+            high: currentPrice,
+            low: currentPrice,
+            close: currentPrice,
+          };
+          currentCandleRef.current = newCandle;
+          candlestickSeriesRef.current.update(newCandle);
+          lastPriceUpdateRef.current = Date.now();
+          console.log('Interval changed, created new candle:', { 
+            price: currentPrice, 
+            interval: interval, 
+            time: currentIntervalStart,
+            open: previousClose 
+          });
+          return;
         }
       }
+
+      // No current candle - initialize from last candle in data
+      const lastCandle = data[data.length - 1] as Candlestick;
+      const newCandle = {
+        time: currentIntervalStart as any,
+        open: lastCandle.close, // Use previous candle's close as new open
+        high: currentPrice,
+        low: currentPrice,
+        close: currentPrice,
+      };
+      currentCandleRef.current = newCandle;
+      candlestickSeriesRef.current.update(newCandle);
+      lastPriceUpdateRef.current = Date.now();
+      console.log('Created new candle (initial):', { price: currentPrice, interval: interval, time: currentIntervalStart });
+    } catch (error) {
+      // Log errors for debugging
+      console.error('Chart update error:', error);
     }
-  }, [currentPrice, isChartReady, data]);
+  }, [currentPrice, isChartReady, data, interval]);
 
   // Debug logging
   useEffect(() => {
