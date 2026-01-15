@@ -28,7 +28,6 @@ type OrderFormData = z.infer<typeof orderSchema>;
 
 export const OrderEntryForm: React.FC = () => {
   const { placeOrder, isPlacing } = useOrders();
-  const [selectedSide, setSelectedSide] = useState<OrderSide>(OrderSide.BUY);
   const [priceInitialized, setPriceInitialized] = useState(false);
 
   const {
@@ -52,7 +51,6 @@ export const OrderEntryForm: React.FC = () => {
   const orderType = watch('orderType');
   const side = watch('side');
   const formSymbol = watch('symbol') || 'BTC/USD';
-  const formPrice = watch('price');
   
   // Get current price for selected symbol
   const { currentPrice } = useMarketData(formSymbol);
@@ -82,7 +80,11 @@ export const OrderEntryForm: React.FC = () => {
       const idempotencyKey = generateIdempotencyKey();
       
       await placeOrder({
-        ...data,
+        symbol: data.symbol,
+        side: data.side as OrderSide,
+        orderType: data.orderType as OrderType,
+        quantity: data.quantity,
+        price: data.price,
         idempotencyKey,
       });
 
@@ -99,8 +101,10 @@ export const OrderEntryForm: React.FC = () => {
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="glass-card rounded-lg shadow-lg p-6">
-      <h2 className="text-xl font-bold text-white mb-6">Place Order</h2>
+    <form onSubmit={handleSubmit(onSubmit)} className="bg-gradient-to-br from-slate-900/80 via-slate-800/70 to-slate-900/80 backdrop-blur-xl border border-white/10 rounded-lg shadow-2xl shadow-black/50 p-6 relative overflow-hidden">
+      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
+      <div className="relative z-10">
+        <h2 className="text-xl font-bold text-white mb-6">Place Order</h2>
 
       {/* Buy/Sell Toggle */}
       <div className="flex gap-2 mb-4">
@@ -108,7 +112,6 @@ export const OrderEntryForm: React.FC = () => {
           type="button"
           onClick={() => {
             setValue('side', OrderSide.BUY);
-            setSelectedSide(OrderSide.BUY);
           }}
           className={`flex-1 py-3 rounded-md font-semibold transition-colors ${
             side === OrderSide.BUY
@@ -122,7 +125,6 @@ export const OrderEntryForm: React.FC = () => {
           type="button"
           onClick={() => {
             setValue('side', OrderSide.SELL);
-            setSelectedSide(OrderSide.SELL);
           }}
           className={`flex-1 py-3 rounded-md font-semibold transition-colors ${
             side === OrderSide.SELL
@@ -236,6 +238,7 @@ export const OrderEntryForm: React.FC = () => {
       >
         {isPlacing ? 'Placing Order...' : `Place ${side} Order`}
       </Button>
+      </div>
     </form>
   );
 };

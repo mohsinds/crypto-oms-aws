@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { createChart, ColorType, IChartApi, ISeriesApi } from 'lightweight-charts';
 import { useCandlestickData } from '../../hooks/useMarketData';
+import { useMarketData } from '../../hooks/useMarketData';
 import { LoadingSpinner } from '../common/LoadingSpinner';
+import { Candlestick } from '../../types/market';
 
 interface CandlestickChartProps {
   symbol: string;
@@ -14,7 +16,9 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({ symbol, inte
   const candlestickSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
   
   const { data, isLoading } = useCandlestickData(symbol, interval);
+  const { currentPrice } = useMarketData(symbol);
   const [isChartReady, setIsChartReady] = useState(false);
+  const lastPriceUpdateRef = useRef<number>(0);
 
   useEffect(() => {
     if (!chartContainerRef.current) {
@@ -199,6 +203,34 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({ symbol, inte
     }
   }, [data, symbol, interval, isChartReady]);
 
+  // Update latest price in real-time
+  useEffect(() => {
+    if (candlestickSeriesRef.current && currentPrice && isChartReady && data && data.length > 0) {
+      const lastCandle = data[data.length - 1] as Candlestick;
+      const lastCandleTime = Math.floor(lastCandle.timestamp / 1000);
+      const now = Math.floor(Date.now() / 1000);
+      
+      // Only update if the new time is strictly after the last candle time
+      // Throttle updates to avoid too frequent updates (every 2 seconds)
+      if (now > lastCandleTime && Date.now() - lastPriceUpdateRef.current > 2000) {
+        try {
+          // Update the last candle with current price
+          candlestickSeriesRef.current.update({
+            time: now as any,
+            open: lastCandle.close,
+            high: Math.max(lastCandle.close, currentPrice),
+            low: Math.min(lastCandle.close, currentPrice),
+            close: currentPrice,
+          });
+          lastPriceUpdateRef.current = Date.now();
+        } catch (error) {
+          // Silently handle update errors (chart might not be ready)
+          console.debug('Chart update skipped:', error);
+        }
+      }
+    }
+  }, [currentPrice, isChartReady, data]);
+
   // Debug logging
   useEffect(() => {
     console.log('Chart state:', {
@@ -207,8 +239,9 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({ symbol, inte
       dataLength: data?.length,
       hasChart: !!chartRef.current,
       hasSeries: !!candlestickSeriesRef.current,
+      currentPrice,
     });
-  }, [isLoading, isChartReady, data]);
+  }, [isLoading, isChartReady, data, currentPrice]);
 
   return (
     <div className="w-full h-full relative">

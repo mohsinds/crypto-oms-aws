@@ -11,7 +11,8 @@ export const RecentTrades: React.FC<RecentTradesProps> = ({ symbol }) => {
 
   if (isLoading) {
     return (
-      <div className="glass-card rounded-lg shadow-lg p-4">
+      <div className="bg-gradient-to-br from-slate-900/80 via-slate-800/70 to-slate-900/80 backdrop-blur-xl border border-white/10 rounded-lg shadow-2xl shadow-black/50 p-4 relative overflow-hidden">
+        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
         <h3 className="text-lg font-bold text-white mb-4">Recent Trades</h3>
         <div className="flex justify-center py-4">
           <LoadingSpinner />
@@ -21,7 +22,8 @@ export const RecentTrades: React.FC<RecentTradesProps> = ({ symbol }) => {
   }
 
   return (
-    <div className="glass-card rounded-lg shadow-lg p-4">
+    <div className="bg-gradient-to-br from-slate-900/80 via-slate-800/70 to-slate-900/80 backdrop-blur-xl border border-white/10 rounded-lg shadow-2xl shadow-black/50 p-4 relative overflow-hidden">
+      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
       <h3 className="text-lg font-bold text-white mb-4">Recent Trades</h3>
       <div className="space-y-1 max-h-80 overflow-y-auto">
         {trades.slice(0, 20).map((trade) => (

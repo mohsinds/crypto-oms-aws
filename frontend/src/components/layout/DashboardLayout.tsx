@@ -33,26 +33,29 @@ export const DashboardLayout: React.FC = () => {
           {/* Left Column: Chart */}
           <div className="col-span-8 space-y-6">
             {/* Candlestick Chart */}
-            <div className="glass-card rounded-lg shadow-lg p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold text-white">{selectedSymbol} Chart</h2>
-                <div className="flex gap-2">
-                  {(['1m', '5m', '15m', '1h', '1d'] as const).map((interval) => (
-                    <button
-                      key={interval}
-                      onClick={() => setChartInterval(interval)}
-                      className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
-                        chartInterval === interval
-                          ? 'bg-primary-600 text-white'
-                          : 'bg-dark-800 text-gray-400 hover:bg-dark-700 hover:text-white'
-                      }`}
-                    >
-                      {interval}
-                    </button>
-                  ))}
+            <div className="bg-gradient-to-br from-slate-900/80 via-slate-800/70 to-slate-900/80 backdrop-blur-xl border border-white/10 rounded-lg shadow-2xl shadow-black/50 p-6 relative overflow-hidden">
+              <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
+              <div className="relative z-10">
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-xl font-bold text-white">{selectedSymbol} Chart</h2>
+                  <div className="flex gap-2">
+                    {(['1m', '5m', '15m', '1h', '1d'] as const).map((interval) => (
+                      <button
+                        key={interval}
+                        onClick={() => setChartInterval(interval)}
+                        className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+                          chartInterval === interval
+                            ? 'bg-primary-600 text-white'
+                            : 'bg-dark-800 text-gray-400 hover:bg-dark-700 hover:text-white'
+                        }`}
+                      >
+                        {interval}
+                      </button>
+                    ))}
+                  </div>
                 </div>
+                <CandlestickChart symbol={selectedSymbol} interval={chartInterval} />
               </div>
-              <CandlestickChart symbol={selectedSymbol} interval={chartInterval} />
             </div>
           </div>
           

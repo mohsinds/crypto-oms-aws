@@ -28,7 +28,8 @@ export const PositionTable: React.FC = () => {
   }, [positions, getPrice]);
 
   return (
-    <div className="glass-card rounded-lg shadow-lg p-6">
+    <div className="bg-gradient-to-br from-slate-900/80 via-slate-800/70 to-slate-900/80 backdrop-blur-xl border border-white/10 rounded-lg shadow-2xl shadow-black/50 p-6 relative overflow-hidden">
+      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
       <h2 className="text-xl font-bold text-white mb-4">Positions</h2>
       
       {!updatedPositions || updatedPositions.length === 0 ? (
