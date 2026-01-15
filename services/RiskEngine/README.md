@@ -289,6 +289,123 @@ docker run -p 5001:80 \
   crypto-oms/risk-engine:latest
 ```
 
+## Running on AWS
+
+### Prerequisites
+
+- AWS account with EKS cluster deployed
+- ECR repository created
+- AWS CLI configured
+- kubectl configured for EKS cluster
+- Terraform outputs available (DocumentDB endpoint, Redis endpoint, Kafka bootstrap servers)
+
+### Step 1: Get AWS Service Endpoints
+
+```bash
+cd ../../terraform
+
+# Get DocumentDB endpoint
+DOCUMENTDB_ENDPOINT=$(terraform output -raw documentdb_endpoint)
+
+# Get Redis endpoint
+REDIS_ENDPOINT=$(terraform output -raw redis_endpoint)
+
+# Get Kafka bootstrap servers
+KAFKA_BOOTSTRAP=$(terraform output -raw kafka_bootstrap_servers)
+
+# Get EKS cluster name
+EKS_CLUSTER=$(terraform output -raw eks_cluster_name)
+
+# Configure kubectl
+aws eks update-kubeconfig --name $EKS_CLUSTER --region us-east-1
+```
+
+### Step 2: Build and Push Docker Image
+
+```bash
+cd ../services/RiskEngine
+
+# Build image
+docker build -t crypto-oms/risk-engine:latest .
+
+# Get AWS account ID and region
+AWS_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+AWS_REGION=$(aws configure get region)
+
+# Create ECR repository (if not exists)
+aws ecr create-repository \
+  --repository-name crypto-oms/risk-engine \
+  --region $AWS_REGION || true
+
+# Login to ECR
+aws ecr get-login-password --region $AWS_REGION | \
+  docker login --username AWS --password-stdin \
+  $AWS_ACCOUNT.dkr.ecr.$AWS_REGION.amazonaws.com
+
+# Tag and push image
+docker tag crypto-oms/risk-engine:latest \
+  $AWS_ACCOUNT.dkr.ecr.$AWS_REGION.amazonaws.com/crypto-oms/risk-engine:latest
+
+docker push \
+  $AWS_ACCOUNT.dkr.ecr.$AWS_REGION.amazonaws.com/crypto-oms/risk-engine:latest
+```
+
+### Step 3: Deploy to Kubernetes
+
+```bash
+cd ../../k8s
+
+# Ensure namespace exists
+kubectl create namespace crypto-oms || true
+
+# Apply ConfigMap and Secrets (if not already applied)
+kubectl apply -f configmaps/app-config.yaml
+kubectl apply -f secrets/app-secrets.yaml
+
+# Apply Deployment
+kubectl apply -f deployments/risk-engine-deployment.yaml
+
+# Apply Service
+kubectl apply -f services/risk-engine-service.yaml
+
+# Apply HPA
+kubectl apply -f deployments/risk-engine-hpa.yaml
+
+# Verify deployment
+kubectl get pods -n crypto-oms -l app=risk-engine
+kubectl get svc -n crypto-oms -l app=risk-engine
+```
+
+### Step 4: Verify Deployment
+
+```bash
+# Check pod status
+kubectl get pods -n crypto-oms -l app=risk-engine
+
+# Check pod logs
+kubectl logs -n crypto-oms -l app=risk-engine --tail=50
+
+# Port forward for testing
+kubectl port-forward -n crypto-oms svc/risk-engine 5001:80
+
+# Test health endpoint
+curl http://localhost:5001/health
+
+# Test risk validation
+curl -X POST http://localhost:5001/api/risk/validate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "orderId": "test-123",
+    "userId": "user123",
+    "symbol": "BTC/USD",
+    "side": "BUY",
+    "orderType": "LIMIT",
+    "quantity": 0.1,
+    "price": 45000,
+    "currentPrice": 45000
+  }'
+```
+
 ## Next Steps
 
 - [ ] Load risk limits from DocumentDB or configuration service

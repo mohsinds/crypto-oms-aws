@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: market-data
+  namespace: crypto-oms
+  labels:
+    app: market-data
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 80
+    protocol: TCP
+    name: http
+  selector:
+    app: market-data
+  sessionAffinity: None

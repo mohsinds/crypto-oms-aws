@@ -1,0 +1,34 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: crypto-oms
+  labels:
+    app: crypto-oms
+data:
+  # Redis Configuration
+  redis-endpoint: "REPLACE_WITH_REDIS_ENDPOINT"
+  redis-port: "6379"
+  
+  # Kafka Configuration
+  kafka-bootstrap-servers: "REPLACE_WITH_KAFKA_BOOTSTRAP_SERVERS"
+  kafka-orders-topic: "orders"
+  kafka-executions-topic: "executions"
+  kafka-prices-topic: "prices"
+  kafka-risk-events-topic: "risk-events"
+  
+  # DocumentDB Configuration
+  documentdb-endpoint: "REPLACE_WITH_DOCUMENTDB_ENDPOINT"
+  documentdb-port: "27017"
+  documentdb-database: "crypto_oms"
+  
+  # Service URLs (for inter-service communication)
+  risk-engine-url: "http://risk-engine.crypto-oms.svc.cluster.local"
+  market-data-url: "http://market-data.crypto-oms.svc.cluster.local"
+  order-ingestion-url: "http://order-ingestion.crypto-oms.svc.cluster.local"
+  
+  # Environment
+  environment: "production"
+  
+  # Logging
+  log-level: "Information"

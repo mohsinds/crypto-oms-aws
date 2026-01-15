@@ -255,6 +255,132 @@ docker run -p 5002:80 \
   crypto-oms/market-data:latest
 ```
 
+## Running on AWS
+
+### Prerequisites
+
+- AWS account with EKS cluster deployed
+- ECR repository created
+- AWS CLI configured
+- kubectl configured for EKS cluster
+- Terraform outputs available (Redis endpoint, Kafka bootstrap servers)
+
+### Step 1: Get AWS Service Endpoints
+
+```bash
+cd ../../terraform
+
+# Get Redis endpoint
+REDIS_ENDPOINT=$(terraform output -raw redis_endpoint)
+
+# Get Kafka bootstrap servers
+KAFKA_BOOTSTRAP=$(terraform output -raw kafka_bootstrap_servers)
+
+# Get EKS cluster name
+EKS_CLUSTER=$(terraform output -raw eks_cluster_name)
+
+# Configure kubectl
+aws eks update-kubeconfig --name $EKS_CLUSTER --region us-east-1
+```
+
+### Step 2: Build and Push Docker Image
+
+```bash
+cd ../services/MarketData
+
+# Build image
+docker build -t crypto-oms/market-data:latest .
+
+# Get AWS account ID and region
+AWS_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+AWS_REGION=$(aws configure get region)
+
+# Create ECR repository (if not exists)
+aws ecr create-repository \
+  --repository-name crypto-oms/market-data \
+  --region $AWS_REGION || true
+
+# Login to ECR
+aws ecr get-login-password --region $AWS_REGION | \
+  docker login --username AWS --password-stdin \
+  $AWS_ACCOUNT.dkr.ecr.$AWS_REGION.amazonaws.com
+
+# Tag and push image
+docker tag crypto-oms/market-data:latest \
+  $AWS_ACCOUNT.dkr.ecr.$AWS_REGION.amazonaws.com/crypto-oms/market-data:latest
+
+docker push \
+  $AWS_ACCOUNT.dkr.ecr.$AWS_REGION.amazonaws.com/crypto-oms/market-data:latest
+```
+
+### Step 3: Deploy to Kubernetes
+
+```bash
+cd ../../k8s
+
+# Ensure namespace exists
+kubectl create namespace crypto-oms || true
+
+# Apply ConfigMap and Secrets (if not already applied)
+kubectl apply -f configmaps/app-config.yaml
+kubectl apply -f secrets/app-secrets.yaml
+
+# Apply Deployment
+kubectl apply -f deployments/market-data-deployment.yaml
+
+# Apply Service
+kubectl apply -f services/market-data-service.yaml
+
+# Apply HPA
+kubectl apply -f deployments/market-data-hpa.yaml
+
+# Verify deployment
+kubectl get pods -n crypto-oms -l app=market-data
+kubectl get svc -n crypto-oms -l app=market-data
+```
+
+### Step 4: Verify Deployment
+
+```bash
+# Check pod status
+kubectl get pods -n crypto-oms -l app=market-data
+
+# Check pod logs
+kubectl logs -n crypto-oms -l app=market-data --tail=50
+
+# Port forward for testing
+kubectl port-forward -n crypto-oms svc/market-data 5002:80
+
+# Test health endpoint
+curl http://localhost:5002/health
+
+# Test price endpoint
+curl http://localhost:5002/api/market-data/prices/BTC%2FUSD
+
+# Test order book endpoint
+curl http://localhost:5002/api/market-data/orderbook/BTC%2FUSD
+```
+
+### Step 5: Test WebSocket Connection
+
+```javascript
+// In browser console or Node.js
+const connection = new signalR.HubConnectionBuilder()
+    .withUrl("http://localhost:5002/ws/market-data")
+    .build();
+
+connection.on("PriceUpdate", (price) => {
+    console.log("Price update:", price);
+});
+
+connection.start()
+    .then(() => {
+        console.log("Connected to Market Data WebSocket");
+        connection.invoke("SubscribeToSymbol", "BTC/USD");
+    })
+    .catch(err => console.error(err));
+```
+
 ## Next Steps
 
 - [ ] Implement GET /api/market-data/candlestick/{symbol} endpoint

@@ -1,0 +1,89 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: risk-engine
+  namespace: crypto-oms
+  labels:
+    app: risk-engine
+    component: api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: risk-engine
+  template:
+    metadata:
+      labels:
+        app: risk-engine
+        component: api
+    spec:
+      containers:
+      - name: risk-engine
+        image: <AWS_ACCOUNT_ID>.dkr.ecr.<AWS_REGION>.amazonaws.com/crypto-oms/risk-engine:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 80
+          name: http
+          protocol: TCP
+        env:
+        - name: Database__ConnectionString
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: documentdb-endpoint
+        - name: Database__DatabaseName
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: documentdb-database
+        - name: ConnectionStrings__Redis
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: redis-endpoint
+        - name: Kafka__BootstrapServers
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: kafka-bootstrap-servers
+        - name: Kafka__RiskEventsTopic
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: kafka-risk-events-topic
+        - name: ASPNETCORE_ENVIRONMENT
+          value: "Production"
+        - name: ASPNETCORE_URLS
+          value: "http://+:80"
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 80
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 80
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 80
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 10
+      restartPolicy: Always

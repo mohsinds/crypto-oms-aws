@@ -263,6 +263,100 @@ docker run \
 - **Scalability**: Spawn thousands of actors for thousands of orders
 - **Throughput**: Designed for 50,000+ orders/second
 
+## Running on AWS
+
+### Prerequisites
+
+- AWS account with EKS cluster deployed
+- ECR repository created
+- AWS CLI configured
+- kubectl configured for EKS cluster
+- Terraform outputs available (DocumentDB endpoint, Kafka bootstrap servers, Risk Engine URL)
+
+### Step 1: Get AWS Service Endpoints
+
+```bash
+cd ../../terraform
+
+# Get DocumentDB endpoint
+DOCUMENTDB_ENDPOINT=$(terraform output -raw documentdb_endpoint)
+
+# Get Kafka bootstrap servers
+KAFKA_BOOTSTRAP=$(terraform output -raw kafka_bootstrap_servers)
+
+# Get EKS cluster name
+EKS_CLUSTER=$(terraform output -raw eks_cluster_name)
+
+# Configure kubectl
+aws eks update-kubeconfig --name $EKS_CLUSTER --region us-east-1
+```
+
+### Step 2: Build and Push Docker Image
+
+```bash
+cd ../services/OrderProcessor
+
+# Build image
+docker build -t crypto-oms/order-processor:latest .
+
+# Get AWS account ID and region
+AWS_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+AWS_REGION=$(aws configure get region)
+
+# Create ECR repository (if not exists)
+aws ecr create-repository \
+  --repository-name crypto-oms/order-processor \
+  --region $AWS_REGION || true
+
+# Login to ECR
+aws ecr get-login-password --region $AWS_REGION | \
+  docker login --username AWS --password-stdin \
+  $AWS_ACCOUNT.dkr.ecr.$AWS_REGION.amazonaws.com
+
+# Tag and push image
+docker tag crypto-oms/order-processor:latest \
+  $AWS_ACCOUNT.dkr.ecr.$AWS_REGION.amazonaws.com/crypto-oms/order-processor:latest
+
+docker push \
+  $AWS_ACCOUNT.dkr.ecr.$AWS_REGION.amazonaws.com/crypto-oms/order-processor:latest
+```
+
+### Step 3: Deploy to Kubernetes
+
+```bash
+cd ../../k8s
+
+# Ensure namespace exists
+kubectl create namespace crypto-oms || true
+
+# Apply ConfigMap and Secrets (if not already applied)
+kubectl apply -f configmaps/app-config.yaml
+kubectl apply -f secrets/app-secrets.yaml
+
+# Apply Deployment
+kubectl apply -f deployments/order-processor-deployment.yaml
+
+# Apply Service
+kubectl apply -f services/order-processor-service.yaml
+
+# Verify deployment
+kubectl get pods -n crypto-oms -l app=order-processor
+kubectl logs -n crypto-oms -l app=order-processor --tail=50
+```
+
+### Step 4: Verify Deployment
+
+```bash
+# Check pod status
+kubectl get pods -n crypto-oms -l app=order-processor
+
+# Check pod logs (should show Kafka consumer started)
+kubectl logs -n crypto-oms -l app=order-processor --tail=100
+
+# Verify actor system initialized
+kubectl logs -n crypto-oms -l app=order-processor | grep "Proto.Actor"
+```
+
 ## Next Steps
 
 - [ ] Implement actor persistence (save state to DocumentDB on passivation)

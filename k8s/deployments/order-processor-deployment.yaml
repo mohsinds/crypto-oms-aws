@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order-processor
+  namespace: crypto-oms
+  labels:
+    app: order-processor
+    component: consumer
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: order-processor
+  template:
+    metadata:
+      labels:
+        app: order-processor
+        component: consumer
+    spec:
+      containers:
+      - name: order-processor
+        image: <AWS_ACCOUNT_ID>.dkr.ecr.<AWS_REGION>.amazonaws.com/crypto-oms/order-processor:latest
+        imagePullPolicy: Always
+        env:
+        - name: Database__ConnectionString
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: documentdb-endpoint
+        - name: Database__DatabaseName
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: documentdb-database
+        - name: Kafka__BootstrapServers
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: kafka-bootstrap-servers
+        - name: Kafka__OrdersTopic
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: kafka-orders-topic
+        - name: Kafka__ExecutionsTopic
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: kafka-executions-topic
+        - name: RiskEngine__BaseUrl
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: risk-engine-url
+        - name: DOTNET_ENVIRONMENT
+          value: "Production"
+        resources:
+          requests:
+            cpu: 200m
+            memory: 512Mi
+          limits:
+            cpu: 1000m
+            memory: 1Gi
+        # Note: Order Processor is a background service, no HTTP endpoints
+        # Health checks can be added via file-based health checks or custom implementation
+      restartPolicy: Always
