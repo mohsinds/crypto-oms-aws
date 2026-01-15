@@ -1,53 +1,54 @@
 import { useQuery } from '@tanstack/react-query';
 import { Price, OrderBook, Candlestick, Trade } from '../types/market';
-import {
-  generateDummyPrice,
-  generateDummyOrderBook,
-  generateCandlestickData,
-  generateDummyTrades,
-} from '../utils/mockData';
+import { generateCandlestickData } from '../utils/mockData';
+import { useMarketDataStore } from '../contexts/MarketDataStore';
+import { useEffect, useState } from 'react';
 
 // Using mock data for now - will switch to real API when backend is ready
 const USE_MOCK_DATA = true;
 
 export const useMarketData = (symbol: string) => {
-  const priceQuery = useQuery({
-    queryKey: ['market-data', 'price', symbol],
-    queryFn: async (): Promise<Price> => {
-      if (USE_MOCK_DATA) {
-        return generateDummyPrice(symbol);
+  const { getPrice } = useMarketDataStore();
+  const [price, setPrice] = useState<Price | undefined>(getPrice(symbol));
+
+  // Subscribe to price updates
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const currentPrice = getPrice(symbol);
+      if (currentPrice) {
+        setPrice(currentPrice);
       }
-      // TODO: Use real API
-      // return marketDataService.getPrice(symbol);
-      throw new Error('Not implemented');
-    },
-    refetchInterval: 1000, // Update every second
-  });
+    }, 500); // Check every 500ms
+
+    return () => clearInterval(interval);
+  }, [symbol, getPrice]);
 
   return {
-    currentPrice: priceQuery.data?.price,
-    price: priceQuery.data,
-    isLoading: priceQuery.isLoading,
+    currentPrice: price?.price,
+    price,
+    isLoading: !price,
   };
 };
 
 export const useOrderBook = (symbol: string) => {
-  const orderBookQuery = useQuery({
-    queryKey: ['market-data', 'orderbook', symbol],
-    queryFn: async (): Promise<OrderBook> => {
-      if (USE_MOCK_DATA) {
-        return generateDummyOrderBook(symbol);
+  const { getOrderBook } = useMarketDataStore();
+  const [orderBook, setOrderBook] = useState<OrderBook | undefined>(getOrderBook(symbol));
+
+  // Subscribe to order book updates
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const currentOrderBook = getOrderBook(symbol);
+      if (currentOrderBook) {
+        setOrderBook(currentOrderBook);
       }
-      // TODO: Use real API
-      // return marketDataService.getOrderBook(symbol);
-      throw new Error('Not implemented');
-    },
-    refetchInterval: 2000, // Update every 2 seconds
-  });
+    }, 1000); // Check every second
+
+    return () => clearInterval(interval);
+  }, [symbol, getOrderBook]);
 
   return {
-    orderBook: orderBookQuery.data,
-    isLoading: orderBookQuery.isLoading,
+    orderBook,
+    isLoading: !orderBook,
   };
 };
 
@@ -55,16 +56,27 @@ export const useCandlestickData = (symbol: string, interval: string) => {
   const candlestickQuery = useQuery({
     queryKey: ['market-data', 'candlestick', symbol, interval],
     queryFn: async (): Promise<Candlestick[]> => {
+      console.log('Generating candlestick data for:', { symbol, interval, USE_MOCK_DATA });
       if (USE_MOCK_DATA) {
         const data = generateCandlestickData(symbol, 100);
+        console.log('Generated candlestick data:', { count: data.length, first: data[0], last: data[data.length - 1] });
         // Ensure data is sorted by timestamp (oldest to newest)
-        return data.sort((a, b) => a.timestamp - b.timestamp);
+        const sortedData = data.sort((a, b) => a.timestamp - b.timestamp);
+        return sortedData;
       }
       // TODO: Use real API
       // return marketDataService.getCandlestickData(symbol, interval);
       throw new Error('Not implemented');
     },
     staleTime: 5000, // Consider data fresh for 5 seconds
+    retry: 1,
+  });
+
+  console.log('Candlestick query result:', {
+    dataLength: candlestickQuery.data?.length,
+    isLoading: candlestickQuery.isLoading,
+    isError: candlestickQuery.isError,
+    error: candlestickQuery.error,
   });
 
   return {
@@ -74,21 +86,21 @@ export const useCandlestickData = (symbol: string, interval: string) => {
 };
 
 export const useRecentTrades = (symbol: string) => {
-  const tradesQuery = useQuery({
-    queryKey: ['market-data', 'trades', symbol],
-    queryFn: async (): Promise<Trade[]> => {
-      if (USE_MOCK_DATA) {
-        return generateDummyTrades(symbol, 20);
-      }
-      // TODO: Use real API
-      // return marketDataService.getRecentTrades(symbol);
-      throw new Error('Not implemented');
-    },
-    refetchInterval: 3000, // Update every 3 seconds
-  });
+  const { getTrades } = useMarketDataStore();
+  const [trades, setTrades] = useState<Trade[]>(getTrades(symbol));
+
+  // Subscribe to trades updates
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const currentTrades = getTrades(symbol);
+      setTrades(currentTrades);
+    }, 1000); // Check every second
+
+    return () => clearInterval(interval);
+  }, [symbol, getTrades]);
 
   return {
-    trades: tradesQuery.data || [],
-    isLoading: tradesQuery.isLoading,
+    trades,
+    isLoading: false,
   };
 };

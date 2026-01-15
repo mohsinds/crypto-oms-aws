@@ -1,82 +1,79 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { orderService } from '../services/orderService';
-import { Order, PlaceOrderRequest } from '../types/order';
-import { generateDummyOrders } from '../utils/mockData';
+import { Order, PlaceOrderRequest, OrderStatus } from '../types/order';
+import { useOrderStore } from '../contexts/OrderStore';
 
-// Using mock data for now - will switch to real API when backend is ready
+// Using store for state management - will switch to real API when backend is ready
 const USE_MOCK_DATA = true;
 
 export const useOrders = () => {
-  const queryClient = useQueryClient();
+  const { activeOrders, orderHistory, addOrder, updateOrder } = useOrderStore();
 
   // Place new order
   const placeOrderMutation = useMutation({
-    mutationFn: (request: PlaceOrderRequest) => orderService.placeOrder(request),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['orders', 'active'] });
-      queryClient.invalidateQueries({ queryKey: ['orders', 'history'] });
-    },
-  });
-
-  // Get active orders
-  const activeOrdersQuery = useQuery({
-    queryKey: ['orders', 'active'],
-    queryFn: async () => {
+    mutationFn: async (request: PlaceOrderRequest) => {
       if (USE_MOCK_DATA) {
-        const allOrders = generateDummyOrders();
-        return allOrders.filter(
-          (o) => o.status === 'ACCEPTED' || o.status === 'PARTIALLY_FILLED'
-        );
-      }
-      return orderService.getActiveOrders();
-    },
-    refetchInterval: 5000,
-  });
+        // Create order object
+        const newOrder: Order = {
+          orderId: `order-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+          symbol: request.symbol,
+          side: request.side,
+          orderType: request.orderType,
+          quantity: request.quantity,
+          price: request.price,
+          status: OrderStatus.ACCEPTED,
+          filledQuantity: 0,
+          createdAt: new Date().toISOString(),
+        };
 
-  // Get order history
-  const orderHistoryQuery = useQuery({
-    queryKey: ['orders', 'history'],
-    queryFn: async () => {
-      if (USE_MOCK_DATA) {
-        const allOrders = generateDummyOrders();
-        return allOrders.filter(
-          (o) => o.status === 'FILLED' || o.status === 'CANCELLED' || o.status === 'REJECTED'
-        );
+        // Add to store
+        addOrder(newOrder);
+
+        // Simulate order processing (move to filled after a delay)
+        setTimeout(() => {
+          updateOrder(newOrder.orderId, {
+            status: OrderStatus.FILLED,
+            filledQuantity: request.quantity,
+            avgFillPrice: request.price || request.quantity * 45000, // Mock fill price
+            updatedAt: new Date().toISOString(),
+          });
+        }, 3000); // Fill after 3 seconds
+
+        return newOrder;
       }
-      return orderService.getOrderHistory();
+      return orderService.placeOrder(request);
     },
   });
 
   return {
     placeOrder: placeOrderMutation.mutate,
     isPlacing: placeOrderMutation.isPending,
-    activeOrders: activeOrdersQuery.data || [],
-    orderHistory: orderHistoryQuery.data || [],
-    isLoading: activeOrdersQuery.isLoading || orderHistoryQuery.isLoading,
+    activeOrders,
+    orderHistory,
+    isLoading: false,
     refetch: () => {
-      activeOrdersQuery.refetch();
-      orderHistoryQuery.refetch();
+      // Store-based, no refetch needed
     },
   };
 };
 
 export const useActiveOrders = () => {
-  const { activeOrders, isLoading, refetch } = useOrders();
-  return { orders: activeOrders, isLoading, refetch };
+  const { activeOrders } = useOrderStore();
+  return { orders: activeOrders, isLoading: false, refetch: () => {} };
 };
 
 export const useOrderHistory = (filter?: 'all' | 'filled' | 'cancelled' | 'rejected') => {
-  const { orderHistory, isLoading } = useOrders();
+  const { orderHistory } = useOrderStore();
   
   let filtered = orderHistory;
   if (filter && filter !== 'all') {
     filtered = orderHistory.filter((order) => {
-      if (filter === 'filled') return order.status === 'FILLED';
-      if (filter === 'cancelled') return order.status === 'CANCELLED';
-      if (filter === 'rejected') return order.status === 'REJECTED';
+      if (filter === 'filled') return order.status === OrderStatus.FILLED;
+      if (filter === 'cancelled') return order.status === OrderStatus.CANCELLED;
+      if (filter === 'rejected') return order.status === OrderStatus.REJECTED;
       return true;
     });
   }
   
-  return { orders: filtered, isLoading };
+  return { orders: filtered, isLoading: false };
 };

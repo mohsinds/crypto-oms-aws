@@ -10,7 +10,7 @@ export const PriceTicker: React.FC<PriceTickerProps> = ({ symbol }) => {
 
   if (isLoading || !price) {
     return (
-      <div className="bg-dark-900 rounded-lg shadow-lg p-4 border border-dark-700">
+      <div className="glass-card rounded-lg shadow-lg p-4">
         <div className="animate-pulse">
           <div className="h-8 bg-dark-800 rounded w-32"></div>
         </div>
@@ -21,7 +21,7 @@ export const PriceTicker: React.FC<PriceTickerProps> = ({ symbol }) => {
   const isPositive = price.change24h >= 0;
 
   return (
-    <div className="bg-dark-900 rounded-lg shadow-lg p-6 border border-dark-700">
+    <div className="glass-card rounded-lg shadow-lg p-6">
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-2xl font-bold text-white mb-1">{symbol}</h3>

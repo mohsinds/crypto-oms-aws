@@ -29,6 +29,7 @@ type OrderFormData = z.infer<typeof orderSchema>;
 export const OrderEntryForm: React.FC = () => {
   const { placeOrder, isPlacing } = useOrders();
   const [selectedSide, setSelectedSide] = useState<OrderSide>(OrderSide.BUY);
+  const [priceInitialized, setPriceInitialized] = useState(false);
 
   const {
     register,
@@ -51,16 +52,30 @@ export const OrderEntryForm: React.FC = () => {
   const orderType = watch('orderType');
   const side = watch('side');
   const formSymbol = watch('symbol') || 'BTC/USD';
+  const formPrice = watch('price');
   
   // Get current price for selected symbol
   const { currentPrice } = useMarketData(formSymbol);
 
-  // Update price when currentPrice changes
+  // Set price only once when component mounts or symbol/orderType changes
   useEffect(() => {
-    if (currentPrice && orderType === 'LIMIT') {
-      setValue('price', currentPrice);
+    if (currentPrice && orderType === 'LIMIT' && !priceInitialized) {
+      setValue('price', currentPrice, { shouldDirty: false, shouldValidate: false });
+      setPriceInitialized(true);
     }
-  }, [currentPrice, orderType, setValue]);
+  }, [currentPrice, orderType, setValue, priceInitialized]);
+
+  // Reset initialization flag when order type or symbol changes
+  useEffect(() => {
+    setPriceInitialized(false);
+  }, [orderType, formSymbol]);
+
+  // Handler for "Current Price" button
+  const handleUseCurrentPrice = () => {
+    if (currentPrice && orderType === 'LIMIT') {
+      setValue('price', currentPrice, { shouldValidate: true });
+    }
+  };
 
   const onSubmit = async (data: OrderFormData) => {
     try {
@@ -84,7 +99,7 @@ export const OrderEntryForm: React.FC = () => {
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="bg-dark-900 rounded-lg shadow-lg p-6 border border-dark-700">
+    <form onSubmit={handleSubmit(onSubmit)} className="glass-card rounded-lg shadow-lg p-6">
       <h2 className="text-xl font-bold text-white mb-6">Place Order</h2>
 
       {/* Buy/Sell Toggle */}
@@ -165,13 +180,27 @@ export const OrderEntryForm: React.FC = () => {
       {orderType === 'LIMIT' && (
         <div className="mb-4">
           <label className="block text-sm font-medium text-gray-300 mb-2">Price</label>
-          <input
-            type="number"
-            step="0.01"
-            {...register('price', { valueAsNumber: true })}
-            className="w-full px-4 py-2.5 bg-dark-800 border border-dark-700 rounded-md text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
-            placeholder={currentPrice?.toFixed(2)}
-          />
+          <div className="flex gap-2">
+            <input
+              type="number"
+              step="0.01"
+              {...register('price', { 
+                valueAsNumber: true,
+                required: orderType === 'LIMIT' ? 'Price is required for LIMIT orders' : false,
+              })}
+              className="flex-1 px-4 py-2.5 bg-dark-800 border border-dark-700 rounded-md text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
+              placeholder={currentPrice?.toFixed(2)}
+            />
+            {currentPrice && (
+              <button
+                type="button"
+                onClick={handleUseCurrentPrice}
+                className="px-3 py-2.5 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-md transition-colors whitespace-nowrap"
+              >
+                Current Price
+              </button>
+            )}
+          </div>
           {errors.price && (
             <p className="text-danger text-sm mt-1">{errors.price.message}</p>
           )}

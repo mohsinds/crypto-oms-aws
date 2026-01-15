@@ -1,6 +1,8 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { DashboardLayout } from './components/layout/DashboardLayout';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
+import { OrderStoreProvider } from './contexts/OrderStore';
+import { MarketDataStoreProvider } from './contexts/MarketDataStore';
 import './App.css';
 
 const queryClient = new QueryClient({
@@ -16,7 +18,11 @@ function App() {
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        <DashboardLayout />
+        <MarketDataStoreProvider>
+          <OrderStoreProvider>
+            <DashboardLayout />
+          </OrderStoreProvider>
+        </MarketDataStoreProvider>
       </QueryClientProvider>
     </ErrorBoundary>
   );

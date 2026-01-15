@@ -2,14 +2,13 @@ import { useState } from 'react';
 import { useOrderHistory } from '../../hooks/useOrders';
 import { formatPrice, formatQuantity, formatDate } from '../../utils/formatters';
 import { ORDER_STATUS_COLORS, SIDE_COLORS } from '../../utils/constants';
-import { LoadingSpinner } from '../common/LoadingSpinner';
 
 export const OrderHistory: React.FC = () => {
   const [filter, setFilter] = useState<'all' | 'filled' | 'cancelled' | 'rejected'>('all');
-  const { orders, isLoading } = useOrderHistory(filter);
+  const { orders } = useOrderHistory(filter);
 
   return (
-    <div className="bg-dark-900 rounded-lg shadow-lg p-6 border border-dark-700">
+    <div className="glass-card rounded-lg shadow-lg p-6">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-bold text-white">Order History</h2>
         
@@ -34,11 +33,7 @@ export const OrderHistory: React.FC = () => {
         </div>
       </div>
 
-      {isLoading ? (
-        <div className="flex justify-center py-8">
-          <LoadingSpinner />
-        </div>
-      ) : orders.length === 0 ? (
+      {orders.length === 0 ? (
         <p className="text-gray-400 text-center py-8">No orders found</p>
       ) : (
         <div className="overflow-x-auto">

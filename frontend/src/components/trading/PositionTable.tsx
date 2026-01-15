@@ -1,32 +1,37 @@
-import { useQuery } from '@tanstack/react-query';
-import { generateDummyPositions } from '../../utils/mockData';
 import { formatPrice, formatQuantity, formatPercent } from '../../utils/formatters';
 import { LoadingSpinner } from '../common/LoadingSpinner';
+import { useOrderStore } from '../../contexts/OrderStore';
+import { useMarketDataStore } from '../../contexts/MarketDataStore';
+import { useEffect, useState } from 'react';
 import { Position } from '../../types/market';
 
 export const PositionTable: React.FC = () => {
-  const { data: positions, isLoading } = useQuery({
-    queryKey: ['positions'],
-    queryFn: () => generateDummyPositions(),
-    refetchInterval: 5000,
-  });
+  const { positions } = useOrderStore();
+  const { getPrice } = useMarketDataStore();
+  const [updatedPositions, setUpdatedPositions] = useState<Position[]>(positions);
 
-  if (isLoading) {
-    return (
-      <div className="bg-dark-900 rounded-lg shadow-lg p-6 border border-dark-700">
-        <h2 className="text-xl font-bold text-white mb-4">Positions</h2>
-        <div className="flex justify-center py-8">
-          <LoadingSpinner />
-        </div>
-      </div>
-    );
-  }
+  // Update positions with current prices
+  useEffect(() => {
+    const updated = positions.map((pos) => {
+      const currentPrice = getPrice(pos.symbol);
+      if (currentPrice) {
+        const unrealizedPnl = (currentPrice.price - pos.averageEntryPrice) * pos.quantity;
+        return {
+          ...pos,
+          currentPrice: currentPrice.price,
+          unrealizedPnl,
+        };
+      }
+      return pos;
+    });
+    setUpdatedPositions(updated);
+  }, [positions, getPrice]);
 
   return (
-    <div className="bg-dark-900 rounded-lg shadow-lg p-6 border border-dark-700">
+    <div className="glass-card rounded-lg shadow-lg p-6">
       <h2 className="text-xl font-bold text-white mb-4">Positions</h2>
       
-      {!positions || positions.length === 0 ? (
+      {!updatedPositions || updatedPositions.length === 0 ? (
         <p className="text-gray-400 text-center py-8">No open positions</p>
       ) : (
         <div className="overflow-x-auto">
@@ -43,7 +48,7 @@ export const PositionTable: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {positions.map((position: Position) => {
+              {updatedPositions.map((position: Position) => {
                 const pnlPercent = ((position.currentPrice - position.averageEntryPrice) / position.averageEntryPrice) * 100;
                 return (
                   <tr key={position.symbol} className="border-b border-dark-800 hover:bg-dark-800 transition-colors">

@@ -1,16 +1,15 @@
-import { useEffect } from 'react';
 import { useActiveOrders } from '../../hooks/useOrders';
+import { useOrderStore } from '../../contexts/OrderStore';
 import { formatPrice, formatQuantity } from '../../utils/formatters';
 import { ORDER_STATUS_COLORS, SIDE_COLORS } from '../../utils/constants';
-import { LoadingSpinner } from '../common/LoadingSpinner';
 import { Button } from '../common/Button';
 import { Order } from '../../types/order';
 
-const CancelOrderButton: React.FC<{ orderId: string; onCancel: () => void }> = ({ orderId, onCancel }) => {
-  const handleCancel = async () => {
-    // TODO: Implement cancel order
-    // await orderService.cancelOrder(orderId);
-    onCancel();
+const CancelOrderButton: React.FC<{ orderId: string }> = ({ orderId }) => {
+  const { cancelOrder } = useOrderStore();
+
+  const handleCancel = () => {
+    cancelOrder(orderId);
   };
 
   return (
@@ -26,30 +25,10 @@ const CancelOrderButton: React.FC<{ orderId: string; onCancel: () => void }> = (
 };
 
 export const ActiveOrders: React.FC = () => {
-  const { orders, isLoading, refetch } = useActiveOrders();
-
-  // Auto-refresh every 5 seconds
-  useEffect(() => {
-    const interval = setInterval(() => {
-      refetch();
-    }, 5000);
-
-    return () => clearInterval(interval);
-  }, [refetch]);
-
-  if (isLoading) {
-    return (
-      <div className="bg-dark-900 rounded-lg shadow-lg p-6 border border-dark-700">
-        <h2 className="text-xl font-bold text-white mb-4">Active Orders</h2>
-        <div className="flex justify-center py-8">
-          <LoadingSpinner />
-        </div>
-      </div>
-    );
-  }
+  const { orders } = useActiveOrders();
 
   return (
-    <div className="bg-dark-900 rounded-lg shadow-lg p-6 border border-dark-700">
+    <div className="glass-card rounded-lg shadow-lg p-6">
       <h2 className="text-xl font-bold text-white mb-4">Active Orders</h2>
       
       {orders.length === 0 ? (
@@ -97,7 +76,7 @@ export const ActiveOrders: React.FC = () => {
                   </td>
                   <td className="py-3 px-2">
                     {order.status !== 'FILLED' && order.status !== 'CANCELLED' && (
-                      <CancelOrderButton orderId={order.orderId} onCancel={refetch} />
+                      <CancelOrderButton orderId={order.orderId} />
                     )}
                   </td>
                 </tr>

@@ -30,10 +30,10 @@ export const DashboardLayout: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-12 gap-6">
-          {/* Left Column: Chart and Order Book */}
+          {/* Left Column: Chart */}
           <div className="col-span-8 space-y-6">
             {/* Candlestick Chart */}
-            <div className="bg-dark-900 rounded-lg shadow-lg p-6 border border-dark-700">
+            <div className="glass-card rounded-lg shadow-lg p-6">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-bold text-white">{selectedSymbol} Chart</h2>
                 <div className="flex gap-2">
@@ -54,29 +54,37 @@ export const DashboardLayout: React.FC = () => {
               </div>
               <CandlestickChart symbol={selectedSymbol} interval={chartInterval} />
             </div>
-            
-            {/* Order Book and Recent Trades */}
-            <div className="grid grid-cols-2 gap-6">
-              <OrderBook symbol={selectedSymbol} />
-              <RecentTrades symbol={selectedSymbol} />
-            </div>
           </div>
           
           {/* Right Column: Trading Panel */}
           <div className="col-span-4 space-y-6">
             {/* Order Entry Form */}
             <OrderEntryForm />
-            
-            {/* Active Orders */}
-            <ActiveOrders />
           </div>
         </div>
-        
-        {/* Bottom Section: Order History and Positions */}
-        <div className="grid grid-cols-2 gap-6 mt-6">
-          <OrderHistory />
+
+
+        {/* Bottom Section: Position Table */}
+        <div className="mt-6">
           <PositionTable />
         </div>
+
+        {/* Active Orders - Full Width */}
+        <div className="mt-6">
+          <ActiveOrders />
+        </div>
+
+        {/* Order Book and Recent Trades - 50/50 */}
+        <div className="grid grid-cols-2 gap-6 mt-6">
+          <OrderBook symbol={selectedSymbol} />
+          <RecentTrades symbol={selectedSymbol} />
+        </div>
+
+        {/* Bottom Section: Order History */}
+        <div className="mt-6">
+          <OrderHistory />
+        </div>
+
       </div>
     </div>
   );
