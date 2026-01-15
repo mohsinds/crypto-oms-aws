@@ -79,9 +79,9 @@ enable_logging    = true
 # ============================================================================
 
 tags = {
-  Owner      = "Mohsin Rasheed"
-  Purpose    = "Learning"
-  CostCenter = "Personal"
+  Owner      = "Crypto-OMS-Dev"
+  Purpose    = "Development"
+  CostCenter = "Engineering"
 }
 
 # ============================================================================

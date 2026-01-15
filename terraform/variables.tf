@@ -299,9 +299,9 @@ variable "tags" {
   description = "Additional tags to apply to all resources"
   type        = map(string)
   default = {
-    Owner       = "Mohsin Rasheed"
-    Purpose     = "Learning"
-    CostCenter  = "Personal"
+    Owner       = "Crypto-OMS-Dev"
+    Purpose     = "Development"
+    CostCenter  = "Engineering"
     ManagedBy   = "Terraform"
   }
 }

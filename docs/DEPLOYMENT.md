@@ -1,8 +1,7 @@
-# 🚀 STEP-BY-STEP AWS DEPLOYMENT GUIDE
+# 🚀 Deployment Guide - Crypto OMS AWS
 
-## For First-Time AWS Users
+## Overview
 
-**Author**: Guide for Mohsin Rasheed  
 **Difficulty**: Beginner-friendly with detailed explanations  
 **Time Required**: 2-3 hours for initial setup  
 **Cost**: ~$5-10 for first day of testing
@@ -26,8 +25,8 @@
 1. Go to https://aws.amazon.com
 2. Click "Create an AWS Account"
 3. Fill in:
-   - Email address (use your personal email)
-   - Account name: "Mohsin-DevOps-Learning"
+   - Email address (use your email)
+   - Account name: "Crypto-OMS-Dev"
    - Password (save in password manager)
 4. Choose "Personal" account type
 5. Enter billing information (credit card required)
@@ -60,7 +59,7 @@
 
 1. In AWS Console, search for "IAM" service
 2. Click "Users" → "Create user"
-3. User name: `mohsin-terraform-admin`
+3. User name: `crypto-oms-admin`
 4. Select "Provide user access to the AWS Management Console"
 5. Choose "I want to create an IAM user"
 6. Set console password (use strong password)
@@ -82,7 +81,7 @@
 
 ### Step 1.4: Create Access Keys for CLI
 
-1. In IAM, click on your new user (`mohsin-terraform-admin`)
+1. In IAM, click on your new user (`crypto-oms-admin`)
 2. Go to "Security credentials" tab
 3. Scroll to "Access keys" section
 4. Click "Create access key"
@@ -193,7 +192,7 @@ aws sts get-caller-identity
 {
     "UserId": "AIDAXXXXXXXXX",
     "Account": "123456789012",
-    "Arn": "arn:aws:iam::123456789012:user/mohsin-terraform-admin"
+    "Arn": "arn:aws:iam::123456789012:user/crypto-oms-admin"
 }
 ```
 
@@ -359,9 +358,9 @@ enable_logging = true
 enable_kms_encryption = true
 
 tags = {
-  Owner = "Mohsin Rasheed"
-  Purpose = "Learning"
-  CostCenter = "Personal"
+  Owner = "Crypto-OMS-Dev"
+  Purpose = "Development"
+  CostCenter = "Engineering"
 }
 EOF
 ```
@@ -755,7 +754,7 @@ aws ce get-cost-and-usage \
 - [ ] Costs monitored
 - [ ] Cleanup completed
 
-**Congratulations, Mohsin! You've deployed an enterprise-scale OMS on AWS!** 🎉
+**Congratulations! You've successfully deployed an enterprise-scale OMS on AWS!** 🎉
 
 ---
 

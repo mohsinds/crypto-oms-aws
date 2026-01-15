@@ -4,6 +4,15 @@
 
 This document explains how the Crypto Order Management System operates, from order placement to execution and persistence.
 
+### 🔗 Related Documentation
+
+- **Architecture**: [`ARCHITECTURE.md`](./ARCHITECTURE.md) - Detailed system architecture
+- **Backend Architecture**: [`BACKEND_ARCHITECTURE.md`](./BACKEND_ARCHITECTURE.md) - .NET microservices and Proto.Actor
+- **Frontend Development**: [`FRONTEND.md`](./FRONTEND.md) - React trading dashboard with candlestick charts
+- **Deployment**: [`DEPLOYMENT.md`](./DEPLOYMENT.md) - AWS deployment guide
+- **Development**: [`DEVELOPMENT.md`](./DEVELOPMENT.md) - Service development guide
+- **Testing**: [`TESTING.md`](./TESTING.md) - Testing and verification guide
+
 ---
 
 ## 🔄 Order Lifecycle

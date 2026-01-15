@@ -6,10 +6,16 @@ This document provides a detailed technical architecture of the Crypto Order Man
 
 ### 🔗 Related Files
 
+- **Root README**: [`../README.md`](../README.md) - Project overview and navigation
 - **Terraform Configuration**: [`../terraform/main.tf`](../terraform/main.tf) - Main infrastructure orchestration
 - **Terraform Variables**: [`../terraform/variables.tf`](../terraform/variables.tf) - All configurable parameters
 - **Terraform Outputs**: [`../terraform/outputs.tf`](../terraform/outputs.tf) - Output values after deployment
 - **Cost-Optimized Config**: [`../terraform/terraform.tfvars.cost-optimized.example`](../terraform/terraform.tfvars.cost-optimized.example) - Cost-optimized configuration example
+- **Deployment Guide**: [`DEPLOYMENT.md`](./DEPLOYMENT.md) - Step-by-step deployment instructions
+- **Development Guide**: [`DEVELOPMENT.md`](./DEVELOPMENT.md) - Service development tutorials
+- **Backend Architecture**: [`BACKEND_ARCHITECTURE.md`](./BACKEND_ARCHITECTURE.md) - .NET microservices architecture and Proto.Actor
+- **Frontend Development**: [`FRONTEND.md`](./FRONTEND.md) - React trading dashboard development
+- **Testing Guide**: [`TESTING.md`](./TESTING.md) - Testing methodology and verification
 
 ### 📋 Quick Reference
 
@@ -799,7 +805,7 @@ kafka_instance_count = 1  # Single instance for dev
 
 **Recommendation:**
 - **For Learning AWS**: Use ECS Fargate (Option A) - saves $72/month, simpler
-- **For Kubernetes Experience**: Keep EKS (Option D) - worth it for resume/learning
+- **For Kubernetes Experience**: Keep EKS (Option D) - best for production workloads
 
 **Note**: EKS control plane cost cannot be reduced - it's a fixed fee. The only way to save is to use a different orchestration platform.
 
