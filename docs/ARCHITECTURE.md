@@ -9,6 +9,7 @@ This document provides a detailed technical architecture of the Crypto Order Man
 - **Terraform Configuration**: [`../terraform/main.tf`](../terraform/main.tf) - Main infrastructure orchestration
 - **Terraform Variables**: [`../terraform/variables.tf`](../terraform/variables.tf) - All configurable parameters
 - **Terraform Outputs**: [`../terraform/outputs.tf`](../terraform/outputs.tf) - Output values after deployment
+- **Cost-Optimized Config**: [`../terraform/terraform.tfvars.cost-optimized.example`](../terraform/terraform.tfvars.cost-optimized.example) - Cost-optimized configuration example
 
 ### 📋 Quick Reference
 
@@ -37,27 +38,29 @@ When you run `terraform apply` using the `main.tf` file, the following AWS servi
 
 ### AWS Services Created by main.tf
 
-| # | AWS Service | Module | Purpose | Cost (Dev) |
-|---|------------|--------|---------|------------|
-| 1 | **VPC** | `modules/vpc` | Virtual Private Cloud - Network isolation | Included |
-| 2 | **Subnets** | `modules/vpc` | Public & Private subnets across AZs | Included |
-| 3 | **Internet Gateway** | `modules/vpc` | Public internet access | Included |
-| 4 | **NAT Gateway** | `modules/vpc` | Private subnet outbound access | ~$32/month |
-| 5 | **Security Groups** | `modules/vpc` | Firewall rules for all services | Included |
-| 6 | **VPC Endpoints** | `modules/vpc` | Private AWS service access (S3, ECR) | ~$7/month |
-| 7 | **EKS Cluster** | `modules/eks` | Kubernetes cluster for microservices | ~$72/month |
-| 8 | **EKS Node Group** | `modules/eks` | EC2 instances for Kubernetes workers | ~$30/month |
-| 9 | **MSK Cluster** | `modules/msk` | Managed Kafka for event streaming | ~$302/month |
-| 10 | **ElastiCache Redis** | `modules/redis` | In-memory cache for idempotency | ~$12/month |
-| 11 | **DocumentDB Cluster** | `modules/documentdb` | MongoDB-compatible database | ~$50/month |
-| 12 | **Application Load Balancer** | `modules/alb` | Layer 7 load balancer | ~$16/month |
-| 13 | **S3 Bucket** | `modules/s3` | Static website hosting for frontend | ~$0.50/month |
-| 14 | **KMS Keys** | `modules/kms` | Encryption keys (5 keys) | ~$5/month |
-| 15 | **CloudWatch Logs** | `modules/eks`, `modules/msk` | Centralized logging | ~$5/month |
-| 16 | **IAM Roles** | `modules/eks` | Service permissions | Included |
-| 17 | **Secrets Manager** | `modules/documentdb` | Database credentials storage | ~$0.40/month |
+| # | AWS Service | Module | Purpose | Cost (Dev) | Optimization |
+|---|------------|--------|---------|------------|--------------|
+| 1 | **VPC** | `modules/vpc` | Virtual Private Cloud - Network isolation | Included | N/A |
+| 2 | **Subnets** | `modules/vpc` | Public & Private subnets across AZs | Included | N/A |
+| 3 | **Internet Gateway** | `modules/vpc` | Public internet access | Included | N/A |
+| 4 | **NAT Gateway** | `modules/vpc` | Private subnet outbound access | ~$32/month | Use NAT Instance: -$25/month |
+| 5 | **Security Groups** | `modules/vpc` | Firewall rules for all services | Included | N/A |
+| 6 | **VPC Endpoints** | `modules/vpc` | Private AWS service access (S3, ECR) | ~$7/month | Already optimized |
+| 7 | **EKS Cluster** | `modules/eks` | Kubernetes cluster for microservices | ~$72/month | Use ECS: -$72/month |
+| 8 | **EKS Node Group** | `modules/eks` | EC2 instances for Kubernetes workers | ~$30/month | Use Spot: -$20/month |
+| 9 | **MSK Cluster** | `modules/msk` | Managed Kafka for event streaming | ~$302/month | Self-hosted: -$250/month |
+| 10 | **ElastiCache Redis** | `modules/redis` | In-memory cache for idempotency | ~$12/month | Already optimized |
+| 11 | **DocumentDB Cluster** | `modules/documentdb` | MongoDB-compatible database | ~$50/month | RDS/Self-hosted: -$20-35/month |
+| 12 | **Application Load Balancer** | `modules/alb` | Layer 7 load balancer | ~$16/month | Required |
+| 13 | **S3 Bucket** | `modules/s3` | Static website hosting for frontend | ~$0.50/month | N/A |
+| 14 | **KMS Keys** | `modules/kms` | Encryption keys (5 keys) | ~$5/month | N/A |
+| 15 | **CloudWatch Logs** | `modules/eks`, `modules/msk` | Centralized logging | ~$5/month | N/A |
+| 16 | **IAM Roles** | `modules/eks` | Service permissions | Included | N/A |
+| 17 | **Secrets Manager** | `modules/documentdb` | Database credentials storage | ~$0.40/month | N/A |
 
 **Total Estimated Monthly Cost (Development)**: ~$514/month
+
+**💡 Cost Optimization Potential**: Can reduce to ~$90-250/month depending on optimization scenario (see Cost Optimization Guide below)
 
 ---
 
@@ -181,7 +184,7 @@ The following diagram shows the complete AWS infrastructure created by `terrafor
 │  │  ┌───────────────────────────────────────────────────────────────┐    │  │
 │  │  │  AWS KMS (Key Management Service)                             │    │  │
 │  │  │  - EKS Encryption Key                                         │    │  │
-│  │  │  │  - MSK Encryption Key                                      │    │  │
+│  │  │  - MSK Encryption Key                                         │    │  │
 │  │  │  - Redis Encryption Key                                       │    │  │
 │  │  │  - DocumentDB Encryption Key                                  │    │  │
 │  │  │  - S3 Encryption Key                                          │    │  │
@@ -720,4 +723,457 @@ External Exchange → Market Data Service
 
 ---
 
+## 💰 Cost Optimization Guide
+
+### Why Infrastructure Costs Are High
+
+The current infrastructure costs approximately **$514/month** for a development environment. This section explains why each service costs what it does and provides strategies to reduce costs by 60-80% depending on your requirements.
+
+### Cost Breakdown Analysis
+
+| Service | Monthly Cost | % of Total | Why It's Expensive | Can Reduce? |
+|---------|-------------|------------|-------------------|-------------|
+| **MSK Cluster** | $302 | 59% | Managed service with HA guarantees, 2 brokers required | ✅ Yes - Biggest savings |
+| **EKS Cluster** | $72 | 14% | Fixed monthly fee for managed Kubernetes control plane | ✅ Yes - Use ECS instead |
+| **EKS Node Group** | $30 | 6% | EC2 instance costs for worker nodes | ✅ Yes - Use Spot instances |
+| **DocumentDB** | $50 | 10% | Managed MongoDB service with backups and monitoring | ✅ Yes - Use RDS or self-hosted |
+| **NAT Gateway** | $32 | 6% | Fixed hourly cost + data transfer fees | ✅ Yes - Use NAT instance or VPC endpoints only |
+| **ElastiCache Redis** | $12 | 2% | Already at minimum size (cache.t3.micro) | ⚠️ Limited - Already optimized |
+| **ALB** | $16 | 3% | Application Load Balancer base cost | ⚠️ Limited - Required for routing |
+| **Other** | $10 | 2% | KMS, CloudWatch, Secrets Manager | ⚠️ Limited - Minimal costs |
+
+**Key Insight**: MSK (Kafka) is the largest cost driver at 59% of total infrastructure costs.
+
+---
+
+### Service-by-Service Optimization Strategies
+
+#### 1. MSK Cluster ($302/month) - **BIGGEST COST DRIVER**
+
+**Why it's expensive:**
+- Managed service with high availability guarantees
+- 2 brokers × $151/month = $302/month
+- Includes automatic replication, monitoring, patching, and management overhead
+- Minimum 2 brokers required for production (no single broker option)
+
+**Optimization Options:**
+
+| Option | Monthly Cost | Savings | Trade-offs | Best For |
+|--------|-------------|---------|------------|----------|
+| **A: Self-hosted Kafka on EC2** | $30-60 | ~$250/month | You manage patches, backups, monitoring. Less reliable. | Learning & Development |
+| **B: Use SQS/SNS instead** | $0-5 | ~$300/month | Different API, fewer features, no replay capability | Simple event streaming |
+| **C: Reduce to 1 broker** | $151 | ~$151/month | ⚠️ **NOT RECOMMENDED** - No replication, data loss risk | Local testing only |
+| **D: Keep MSK (Current)** | $302 | $0 | Fully managed, production-ready, high availability | Production environments |
+
+**Recommendation:**
+- **For Learning/Development**: Use self-hosted Kafka on EC2 (Option A) - saves $250/month
+- **For Production**: Keep MSK (Option D) - worth the cost for reliability
+
+**Implementation for Option A (Self-hosted Kafka):**
+```hcl
+# In terraform.tfvars
+enable_msk = false  # Disable MSK module
+enable_self_hosted_kafka = true  # Enable EC2-based Kafka
+kafka_instance_type = "t3.medium"
+kafka_instance_count = 1  # Single instance for dev
+```
+
+---
+
+#### 2. EKS Cluster ($72/month) - **FIXED COST**
+
+**Why it's expensive:**
+- Fixed monthly fee for managed Kubernetes control plane
+- $0.10/hour × 24 hours × 30 days = $72/month
+- No way to reduce this cost (it's the service fee, not usage-based)
+- Control plane runs 24/7 regardless of workload
+
+**Optimization Options:**
+
+| Option | Monthly Cost | Savings | Trade-offs | Best For |
+|--------|-------------|---------|------------|----------|
+| **A: Use ECS Fargate** | $0 (cluster fee) | $72/month | Different orchestration (not Kubernetes), pay per task | Learning AWS, simpler deployments |
+| **B: Use ECS EC2** | $0 (cluster fee) | $72/month | No cluster fee, but you manage EC2 instances | Cost-sensitive deployments |
+| **C: Local Docker Compose** | $0 | $72/month | Not cloud-native, different environment | Local development only |
+| **D: Keep EKS (Current)** | $72 | $0 | Kubernetes experience, industry standard | Production, Kubernetes learning |
+
+**Recommendation:**
+- **For Learning AWS**: Use ECS Fargate (Option A) - saves $72/month, simpler
+- **For Kubernetes Experience**: Keep EKS (Option D) - worth it for resume/learning
+
+**Note**: EKS control plane cost cannot be reduced - it's a fixed fee. The only way to save is to use a different orchestration platform.
+
+---
+
+#### 3. EKS Node Group ($30/month)
+
+**Why it's expensive:**
+- EC2 instance costs: t3.small = ~$15/month per instance
+- Current config shows $30/month (likely 2 nodes or includes data transfer)
+- Worker nodes run 24/7 even when idle
+
+**Optimization Options:**
+
+| Option | Monthly Cost | Savings | Trade-offs | Best For |
+|--------|-------------|---------|------------|----------|
+| **A: Use Spot Instances** | $5-9 | ~$20/month | Can be interrupted (not ideal for production) | Development & testing |
+| **B: Scale to 0 when idle** | $0 (when idle) | $30/month | Cold start time when scaling up | Intermittent workloads |
+| **C: Use smaller instances** | $15 | $15/month | Already at minimum (t3.small) | Already optimized |
+| **D: Keep current (ON-DEMAND)** | $30 | $0 | Reliable, no interruptions | Production workloads |
+
+**Recommendation:**
+- **For Development**: Use Spot Instances (Option A) - saves ~$20/month
+- **For Production**: Keep ON-DEMAND (Option D) - reliability worth the cost
+
+**Implementation for Option A (Spot Instances):**
+```hcl
+# In terraform.tfvars
+use_spot_instances = true  # Enable Spot instances
+eks_node_desired_size = 1  # Start with 1 node
+```
+
+---
+
+#### 4. DocumentDB ($50/month)
+
+**Why it's expensive:**
+- Managed MongoDB-compatible service
+- db.t3.medium = ~$50/month
+- Includes automated backups, monitoring, high availability, patching
+
+**Optimization Options:**
+
+| Option | Monthly Cost | Savings | Trade-offs | Best For |
+|--------|-------------|---------|------------|----------|
+| **A: Use RDS PostgreSQL** | $30 | ~$20/month | Different database (SQL vs NoSQL), may require code changes | If SQL works for your use case |
+| **B: Self-hosted MongoDB on EC2** | $15 | ~$35/month | You manage backups, patches, monitoring | Learning & development |
+| **C: Use DynamoDB** | $5-20 | ~$30/month | Different data model, vendor lock-in, pay-per-request | Serverless architectures |
+| **D: Keep DocumentDB (Current)** | $50 | $0 | Fully managed, MongoDB-compatible, production-ready | Production environments |
+
+**Recommendation:**
+- **For Learning**: Self-hosted MongoDB (Option B) - saves $35/month, learn database management
+- **For Production**: Keep DocumentDB (Option D) or use RDS if SQL works
+
+**Implementation for Option B (Self-hosted MongoDB):**
+```hcl
+# In terraform.tfvars
+enable_documentdb = false  # Disable DocumentDB module
+enable_self_hosted_mongodb = true  # Enable EC2-based MongoDB
+mongodb_instance_type = "t3.small"
+```
+
+---
+
+#### 5. NAT Gateway ($32/month)
+
+**Why it's expensive:**
+- Fixed cost: $0.045/hour = $32.40/month
+- Plus data transfer costs: $0.045/GB
+- Already optimized with single NAT Gateway (saves $64/month vs 3 NATs)
+
+**Optimization Options:**
+
+| Option | Monthly Cost | Savings | Trade-offs | Best For |
+|--------|-------------|---------|------------|----------|
+| **A: Use NAT Instance** | $7 | ~$25/month | Less reliable, you manage it, single point of failure | Development only |
+| **B: Disable NAT Gateway** | $0 | $32/month | No internet access from private subnets, requires VPC endpoints for everything | Fully isolated environments |
+| **C: Keep NAT Gateway (Current)** | $32 | $0 | Reliable, managed, high availability | Production environments |
+
+**Recommendation:**
+- **For Development**: Use NAT Instance (Option A) - saves $25/month
+- **For Production**: Keep NAT Gateway (Option C) - reliability worth the cost
+
+**Note**: VPC Endpoints are already configured to reduce NAT Gateway data transfer costs.
+
+---
+
+#### 6. ElastiCache Redis ($12/month)
+
+**Why it's relatively cheap:**
+- cache.t3.micro = ~$12/month
+- Already at minimum size
+- Small cost relative to other services
+
+**Optimization Options:**
+
+| Option | Monthly Cost | Savings | Trade-offs | Best For |
+|--------|-------------|---------|------------|----------|
+| **A: Self-hosted Redis on EC2** | $7 | ~$5/month | You manage it, less reliable | Development |
+| **B: In-memory cache in app** | $0 | $12/month | Lost on restart, no persistence | Simple use cases |
+| **C: Keep ElastiCache (Current)** | $12 | $0 | Managed, reliable, already cheap | All environments |
+
+**Recommendation:**
+- **Keep ElastiCache** - It's already cheap ($12/month) and fully managed. The savings from alternatives are minimal and not worth the operational overhead.
+
+---
+
+### Cost Optimization Scenarios
+
+#### Scenario 1: Maximum Savings (Development/Learning)
+**Target: ~$100-150/month | Savings: 77%**
+
+**Changes:**
+- Replace MSK with self-hosted Kafka on EC2: **-$250/month**
+- Replace EKS with ECS Fargate: **-$72/month**
+- Replace DocumentDB with self-hosted MongoDB: **-$35/month**
+- Use NAT Instance instead of NAT Gateway: **-$25/month**
+- Use Spot Instances for ECS: **-$10/month**
+
+**New Cost Breakdown:**
+```
+ECS Fargate (no cluster fee):     $0
+EC2 (Kafka + MongoDB):            $45/month
+NAT Instance:                     $7/month
+ElastiCache Redis:                $12/month
+ALB:                              $16/month
+Other (KMS, CloudWatch):          $10/month
+───────────────────────────────────────────
+TOTAL:                            ~$90/month
+```
+
+**Trade-offs:**
+- ✅ 77% cost savings
+- ❌ You manage Kafka and MongoDB (patches, backups, monitoring)
+- ❌ No Kubernetes experience
+- ❌ Less production-ready
+
+**Best For:** Learning AWS fundamentals, cost-sensitive development
+
+---
+
+#### Scenario 2: Moderate Savings (Staging/Testing)
+**Target: ~$250-300/month | Savings: 55%**
+
+**Changes:**
+- Keep EKS but use Spot Instances: **-$15/month**
+- Replace MSK with self-hosted Kafka: **-$250/month**
+- Replace DocumentDB with RDS PostgreSQL: **-$20/month**
+- Keep NAT Gateway (already optimized)
+
+**New Cost Breakdown:**
+```
+EKS Cluster:                      $72/month
+EKS Nodes (Spot):                  $9/month
+EC2 (Self-hosted Kafka):          $30/month
+RDS PostgreSQL:                    $30/month
+ElastiCache Redis:                $12/month
+NAT Gateway:                       $32/month
+ALB:                              $16/month
+Other:                             $10/month
+───────────────────────────────────────────
+TOTAL:                            ~$211/month
+```
+
+**Trade-offs:**
+- ✅ 55% cost savings
+- ✅ Keep Kubernetes experience
+- ❌ You manage Kafka
+- ❌ SQL instead of MongoDB (may require code changes)
+
+**Best For:** Staging environments, testing, Kubernetes learning with cost optimization
+
+---
+
+#### Scenario 3: Keep Managed Services (Production-Ready)
+**Target: ~$400-450/month | Savings: 7%**
+
+**Changes:**
+- Use Spot Instances for EKS nodes: **-$15/month**
+- Keep MSK (already at 2 brokers minimum): **-$0/month**
+- Use RDS PostgreSQL instead of DocumentDB: **-$20/month**
+- Keep everything else managed
+
+**New Cost Breakdown:**
+```
+EKS Cluster:                      $72/month
+EKS Nodes (Spot):                  $9/month
+MSK (2 brokers):                  $302/month
+RDS PostgreSQL:                    $30/month
+ElastiCache Redis:                $12/month
+NAT Gateway:                       $32/month
+ALB:                              $16/month
+Other:                             $10/month
+───────────────────────────────────────────
+TOTAL:                            ~$483/month
+```
+
+**Trade-offs:**
+- ✅ All services fully managed
+- ✅ Production-ready
+- ✅ High availability
+- ⚠️ Only 7% savings
+- ⚠️ Still expensive due to MSK
+
+**Best For:** Production environments, maximum reliability, minimal operational overhead
+
+---
+
+### Cost Comparison Summary
+
+| Scenario | Monthly Cost | Savings | Managed Services | Best For |
+|----------|-------------|---------|------------------|----------|
+| **Current (Development)** | $514 | Baseline | All managed | Learning all services |
+| **Maximum Savings** | $90 | 77% | Minimal | Cost-sensitive learning |
+| **Moderate Savings** | $211 | 55% | Partial | Staging, Kubernetes learning |
+| **Production-Ready** | $483 | 7% | All managed | Production environments |
+
+---
+
+### Implementation Guide
+
+#### Step 1: Choose Your Optimization Scenario
+
+Based on your goals:
+- **Learning AWS on a budget** → Scenario 1 (Maximum Savings)
+- **Learning Kubernetes + AWS** → Scenario 2 (Moderate Savings)
+- **Production deployment** → Scenario 3 (Keep Managed Services)
+
+#### Step 2: Update Terraform Configuration
+
+Create a cost-optimized `terraform.tfvars` file:
+
+**For Scenario 1 (Maximum Savings):**
+```hcl
+# Disable expensive managed services
+enable_msk = false
+enable_eks = false
+enable_documentdb = false
+
+# Enable self-hosted alternatives
+enable_self_hosted_kafka = true
+enable_ecs = true
+enable_self_hosted_mongodb = true
+
+# Use cheaper networking
+enable_nat_gateway = false
+use_nat_instance = true
+
+# Cost-optimized instance sizes
+kafka_instance_type = "t3.medium"
+mongodb_instance_type = "t3.small"
+```
+
+**For Scenario 2 (Moderate Savings):**
+```hcl
+# Keep EKS but optimize
+use_spot_instances = true
+eks_node_desired_size = 1
+
+# Replace MSK with self-hosted
+enable_msk = false
+enable_self_hosted_kafka = true
+
+# Replace DocumentDB with RDS
+enable_documentdb = false
+enable_rds_postgresql = true
+```
+
+#### Step 3: Deploy and Monitor Costs
+
+1. Apply Terraform changes: `terraform apply`
+2. Monitor costs in AWS Cost Explorer
+3. Set up billing alarms
+4. Review costs weekly
+
+#### Step 4: Iterate and Optimize
+
+- Start with Scenario 1 for learning
+- Move to Scenario 2 as you need Kubernetes
+- Use Scenario 3 for production
+
+---
+
+### Alternative Architecture: ECS Instead of EKS
+
+If you choose to replace EKS with ECS, here's the architecture difference:
+
+**ECS Architecture:**
+```
+ALB → ECS Fargate Tasks (Order Ingestion, Order Processor, etc.)
+     ↓
+Self-hosted Kafka (EC2)
+     ↓
+RDS PostgreSQL (instead of DocumentDB)
+     ↓
+ElastiCache Redis
+```
+
+**Benefits:**
+- No cluster fee ($72/month savings)
+- Simpler deployment
+- Pay only for running tasks
+
+**Trade-offs:**
+- No Kubernetes experience
+- Different orchestration model
+- Less industry-standard
+
+---
+
+### Alternative Architecture: SQS/SNS Instead of Kafka
+
+If you choose to replace MSK with SQS/SNS:
+
+**SQS/SNS Architecture:**
+```
+Order Ingestion API → SQS Queue → Order Processor
+                    ↓
+                  SNS Topic → Multiple Subscribers
+```
+
+**Benefits:**
+- Much cheaper (~$5/month vs $302/month)
+- Fully managed
+- No infrastructure to manage
+
+**Trade-offs:**
+- Different API (not Kafka)
+- No message replay
+- Less features than Kafka
+- May require code changes
+
+---
+
+### Cost Monitoring Best Practices
+
+1. **Set Up Billing Alarms**
+   ```bash
+   # Create CloudWatch alarm for $50 threshold
+   aws cloudwatch put-metric-alarm \
+     --alarm-name billing-alarm \
+     --metric-name EstimatedCharges \
+     --threshold 50
+   ```
+
+2. **Use AWS Cost Explorer**
+   - Review costs daily during development
+   - Identify cost drivers
+   - Set up cost budgets
+
+3. **Tag All Resources**
+   - Use consistent tags for cost allocation
+   - Track costs by project/environment
+
+4. **Regular Cleanup**
+   - Run `terraform destroy` when not in use
+   - Delete unused resources
+   - Review and optimize monthly
+
+---
+
+### Quick Reference: Cost Optimization Checklist
+
+- [ ] **MSK**: Consider self-hosted Kafka for development (saves $250/month)
+- [ ] **EKS**: Consider ECS Fargate if Kubernetes not required (saves $72/month)
+- [ ] **EKS Nodes**: Use Spot instances for development (saves ~$20/month)
+- [ ] **DocumentDB**: Consider RDS PostgreSQL or self-hosted MongoDB (saves $20-35/month)
+- [ ] **NAT Gateway**: Use NAT instance for development (saves $25/month)
+- [ ] **Redis**: Keep ElastiCache (already optimized at $12/month)
+- [ ] **Set up billing alarms** before deploying
+- [ ] **Monitor costs daily** during active development
+- [ ] **Destroy infrastructure** when not in use
+
+---
+
 *Last Updated: January 2025*
+

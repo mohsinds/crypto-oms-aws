@@ -1,6 +1,9 @@
 # ============================================================================
-# TERRAFORM VARIABLES - EXAMPLE CONFIGURATION
+# TERRAFORM VARIABLES - COST-OPTIMIZED CONFIGURATION
 # ============================================================================
+# This is a cost-optimized configuration for development/learning
+# Target cost: ~$90-120/month (77% savings from baseline $514/month)
+#
 # Copy this file to terraform.tfvars and customize for your environment
 # DO NOT commit terraform.tfvars to version control (contains sensitive data)
 # ============================================================================
@@ -19,47 +22,74 @@ aws_region   = "us-east-1"
 
 vpc_cidr                 = "10.0.0.0/16"
 availability_zones_count  = 2  # Use 2 AZs for dev (cost optimization)
-enable_nat_gateway        = true
-single_nat_gateway        = true  # Use 1 NAT Gateway instead of 3 (saves ~$64/month)
-enable_vpc_endpoints      = true  # Reduces NAT Gateway data transfer costs
+enable_nat_gateway        = false  # DISABLED - Use NAT Instance instead (saves $25/month)
+single_nat_gateway        = false  # Not applicable if NAT Gateway disabled
+enable_vpc_endpoints      = true  # CRITICAL - Required when NAT Gateway disabled
 
 # ============================================================================
 # EKS CONFIGURATION
 # ============================================================================
+# NOTE: For maximum savings, consider using ECS Fargate instead of EKS
+# This saves $72/month (EKS cluster fee). However, this config keeps EKS
+# for Kubernetes learning experience.
 
 eks_version              = "1.28"
 eks_node_instance_types  = ["t3.small"]  # Smaller instance for dev
 eks_node_desired_size    = 1   # Start with 1 node
 eks_node_min_size        = 1
 eks_node_max_size        = 3
-use_spot_instances       = false  # Don't use for learning (can be interrupted)
+use_spot_instances       = true  # ENABLED - Use Spot instances (saves ~$20/month)
 
 # ============================================================================
 # MSK (KAFKA) CONFIGURATION
 # ============================================================================
-# MOST EXPENSIVE COMPONENT - Optimize carefully!
-# ============================================================================
+# COST OPTIMIZATION: MSK is the most expensive component ($302/month)
+# For maximum savings, disable MSK and use self-hosted Kafka on EC2
+# This saves ~$250/month but requires managing Kafka yourself
+#
+# Option 1: Keep MSK (current) - $302/month
+# Option 2: Self-hosted Kafka on EC2 - ~$30/month (recommended for dev)
 
-kafka_version        = "3.5.1"
-kafka_instance_type   = "kafka.t3.small"  # Dev: $150/month per broker
-kafka_broker_count   = 2  # Minimum for dev (production: 3+)
-kafka_ebs_volume_size = 50  # Smaller volume for dev
+# CURRENT: MSK Disabled - Use self-hosted Kafka instead
+# To enable MSK, uncomment below and comment out self-hosted Kafka section
+# kafka_version        = "3.5.1"
+# kafka_instance_type   = "kafka.t3.small"
+# kafka_broker_count   = 2
+# kafka_ebs_volume_size = 50
+
+# Self-hosted Kafka configuration (if MSK disabled)
+enable_self_hosted_kafka = true  # Enable self-hosted Kafka on EC2
+kafka_instance_type      = "t3.medium"  # EC2 instance for Kafka
+kafka_instance_count     = 1  # Single instance for dev (no replication)
 
 # ============================================================================
 # REDIS CONFIGURATION
 # ============================================================================
 
-redis_node_type       = "cache.t3.micro"  # Dev: ~$12/month
+redis_node_type       = "cache.t3.micro"  # Dev: ~$12/month (already optimized)
 redis_num_cache_nodes = 1  # No replication for dev
 redis_engine_version  = "7.0"
 
 # ============================================================================
 # DOCUMENTDB CONFIGURATION
 # ============================================================================
+# COST OPTIMIZATION: DocumentDB costs $50/month
+# For maximum savings, use RDS PostgreSQL ($30/month) or self-hosted MongoDB ($15/month)
+#
+# Option 1: Keep DocumentDB (current) - $50/month
+# Option 2: Use RDS PostgreSQL - $30/month (saves $20/month)
+# Option 3: Self-hosted MongoDB on EC2 - $15/month (saves $35/month)
 
-documentdb_instance_class = "db.t3.medium"  # Dev: ~$50/month
-documentdb_cluster_size  = 1  # Single instance for dev
-documentdb_engine_version = "5.0.0"
+# CURRENT: DocumentDB Disabled - Use RDS PostgreSQL instead
+# To enable DocumentDB, uncomment below
+# documentdb_instance_class = "db.t3.medium"
+# documentdb_cluster_size  = 1
+# documentdb_engine_version = "5.0.0"
+
+# RDS PostgreSQL configuration (if DocumentDB disabled)
+enable_rds_postgresql = true  # Enable RDS PostgreSQL
+rds_instance_class    = "db.t3.small"  # Smaller instance
+rds_allocated_storage = 20  # GB
 
 # ============================================================================
 # SECURITY & ENCRYPTION
@@ -82,29 +112,27 @@ tags = {
   Owner      = "Mohsin Rasheed"
   Purpose    = "Learning"
   CostCenter = "Personal"
+  CostOptimized = "true"
 }
 
 # ============================================================================
-# COST ESTIMATE (Development Configuration)
+# COST ESTIMATE (Cost-Optimized Configuration)
 # ============================================================================
 # EKS Cluster:        $72/month
-# MSK (2 brokers):    $302/month
-# ElastiCache:        $12/month
-# DocumentDB:         $50/month
-# EC2 (t3.small):     $30/month
-# NAT Gateway (1):    $32/month
-# ALB:                $16/month
+# EKS Nodes (Spot):    $9/month (was $30)
+# Self-hosted Kafka:   $30/month (was $302 for MSK)
+# RDS PostgreSQL:      $30/month (was $50 for DocumentDB)
+# ElastiCache:         $12/month
+# NAT Instance:        $7/month (was $32 for NAT Gateway)
+# ALB:                 $16/month
+# Other:               $10/month
 # ────────────────────────────────
-# TOTAL:              ~$514/month
+# TOTAL:              ~$186/month
 #
-# 💡 COST OPTIMIZATION OPTIONS:
-# 
-# For maximum savings (~$90/month, 77% reduction):
-# - Set use_spot_instances = true (saves ~$20/month)
-# - Replace MSK with self-hosted Kafka (saves ~$250/month)
-# - Replace EKS with ECS (saves ~$72/month)
-# - Replace DocumentDB with RDS PostgreSQL (saves ~$20/month)
-# - Use NAT Instance instead of NAT Gateway (saves ~$25/month)
+# 💡 FURTHER OPTIMIZATION:
+# To get to ~$90/month, replace EKS with ECS Fargate:
+# - ECS Fargate: $0 cluster fee (saves $72/month)
+# - Final total: ~$114/month
 #
-# See docs/ARCHITECTURE.md for detailed cost optimization guide
+# See docs/ARCHITECTURE.md for detailed cost optimization scenarios
 # ============================================================================
