@@ -1175,5 +1175,505 @@ Order Ingestion API → SQS Queue → Order Processor
 
 ---
 
+## 🎮 Infrastructure Orchestration & Destruction
+
+### Deploying All Services (Terraform Apply)
+
+The infrastructure is orchestrated through `terraform/main.tf`, which creates all AWS services in the correct order with proper dependencies.
+
+#### Step-by-Step Deployment Process
+
+1. **Prerequisites**
+   ```bash
+   # Ensure you have:
+   - AWS CLI configured with credentials
+   - Terraform >= 1.0 installed
+   - Appropriate IAM permissions
+   - Billing alarm set up (CRITICAL!)
+   ```
+
+2. **Initialize Terraform**
+   ```bash
+   cd terraform
+   terraform init
+   ```
+   - Downloads AWS provider plugins
+   - Prepares backend for state management
+   - Sets up Terraform working directory
+
+3. **Configure Variables**
+   ```bash
+   # Copy example configuration
+   cp terraform.tfvars.example terraform.tfvars
+   
+   # Edit terraform.tfvars with your values
+   # - Set AWS region
+   - Adjust instance types for cost optimization
+   - Configure environment settings
+   ```
+
+4. **Review Deployment Plan**
+   ```bash
+   terraform plan
+   ```
+   - Shows all resources that will be created
+   - Displays estimated costs (check the plan output)
+   - **NO CHARGES YET** - this is just a preview
+
+5. **Deploy Infrastructure**
+   ```bash
+   terraform apply
+   ```
+   - Creates all AWS resources
+   - Estimated time: 20-30 minutes
+   - You'll be prompted to confirm (type `yes`)
+
+6. **Verify Deployment**
+   ```bash
+   # Check outputs
+   terraform output
+   
+   # Verify in AWS Console
+   # - EKS cluster should be creating
+   # - MSK cluster should be creating
+   # - All resources should be in "creating" state
+   ```
+
+#### Resource Creation Order
+
+Terraform automatically creates resources in the correct dependency order:
+
+```
+1. VPC Module
+   ↓
+2. KMS Module (parallel with VPC)
+   ↓
+3. EKS Module (depends on VPC + KMS)
+   ↓
+4. MSK Module (depends on VPC + KMS)
+   ↓
+5. Redis Module (depends on VPC + KMS)
+   ↓
+6. DocumentDB Module (depends on VPC + KMS)
+   ↓
+7. ALB Module (depends on VPC)
+   ↓
+8. S3 Module (depends on KMS)
+```
+
+**Why This Order?**
+- VPC must exist before any services that need networking
+- KMS keys must exist before services that need encryption
+- EKS/MSK/Databases need VPC subnets and security groups
+- ALB needs public subnets
+- S3 needs KMS for encryption
+
+#### Deployment Time Estimates
+
+| Service | Creation Time | Status |
+|---------|--------------|--------|
+| VPC & Networking | 1-2 minutes | Fast |
+| KMS Keys | < 1 minute | Very fast |
+| EKS Cluster | 10-15 minutes | Slow (managed service) |
+| MSK Cluster | 10-15 minutes | Slow (managed service) |
+| Redis | 5-10 minutes | Moderate |
+| DocumentDB | 10-15 minutes | Slow (managed service) |
+| ALB | 2-3 minutes | Fast |
+| S3 | < 1 minute | Very fast |
+| **Total** | **20-30 minutes** | |
+
+---
+
+### Destroying All Services (Terraform Destroy)
+
+**⚠️ CRITICAL WARNING**: Destroying infrastructure will **PERMANENTLY DELETE** all resources and data. This cannot be undone!
+
+#### Method 1: Using the Safe Destroy Script (Recommended)
+
+The `destroy.sh` script provides extra safety checks:
+
+```bash
+cd terraform
+
+# Interactive mode (recommended - safest)
+./destroy.sh
+
+# What the script does:
+# 1. Checks Terraform and AWS CLI are installed
+# 2. Verifies AWS credentials
+# 3. Shows destroy plan
+# 4. Displays cost estimates
+# 5. Requires double confirmation
+# 6. Backs up Terraform state
+# 7. Destroys all resources
+# 8. Verifies destruction
+```
+
+**Script Features:**
+- ✅ Pre-flight checks
+- ✅ Cost estimation before destruction
+- ✅ Double confirmation prompts
+- ✅ State backup
+- ✅ Post-destruction verification
+- ✅ Error handling
+
+#### Method 2: Direct Terraform Destroy
+
+If you prefer to use Terraform directly:
+
+```bash
+cd terraform
+
+# 1. Review what will be destroyed (dry run)
+terraform plan -destroy
+
+# 2. Destroy all resources (requires confirmation)
+terraform destroy
+
+# 3. Auto-approve (no confirmation - DANGEROUS!)
+terraform destroy -auto-approve
+```
+
+**⚠️ Warning**: Direct `terraform destroy -auto-approve` has no safety checks. Only use if you're absolutely certain!
+
+#### Method 3: Selective Destruction
+
+To destroy specific services only:
+
+```bash
+# Destroy only MSK (saves $302/month)
+terraform destroy -target=module.msk
+
+# Destroy only DocumentDB (saves $50/month)
+terraform destroy -target=module.documentdb
+
+# Destroy only EKS (saves $102/month)
+terraform destroy -target=module.eks
+
+# Destroy networking only (careful - breaks everything!)
+terraform destroy -target=module.vpc
+```
+
+**⚠️ Warning**: Selective destruction can leave orphaned resources. Destroy everything together when possible.
+
+---
+
+### Destruction Order & Process
+
+Terraform automatically destroys resources in reverse dependency order:
+
+```
+1. S3 Module (no dependencies)
+   ↓
+2. ALB Module (depends on VPC)
+   ↓
+3. DocumentDB Module (depends on VPC + KMS)
+   ↓
+4. Redis Module (depends on VPC + KMS)
+   ↓
+5. MSK Module (depends on VPC + KMS)
+   ↓
+6. EKS Module (depends on VPC + KMS)
+   ↓
+7. KMS Module (some services may still reference keys)
+   ↓
+8. VPC Module (destroyed last - breaks everything else)
+```
+
+**Important Notes:**
+- Some resources may fail to delete if dependencies still exist
+- Terraform will show errors for dependent resources
+- You may need to run `terraform destroy` multiple times
+- Check AWS Console for any remaining resources
+
+---
+
+### Safety Best Practices
+
+#### Before Destroying
+
+1. **Backup Important Data**
+   ```bash
+   # DocumentDB data will be LOST
+   # Export any data you need before destroying
+   
+   # S3 bucket contents will be LOST
+   # Download any files you need
+   ```
+
+2. **Set Billing Alarm**
+   ```bash
+   # Ensure billing alarm is active
+   # You'll be notified of any unexpected charges
+   ```
+
+3. **Verify You're in Correct Account**
+   ```bash
+   aws sts get-caller-identity
+   # Double-check AWS account ID
+   ```
+
+4. **Review Costs**
+   ```bash
+   # Check current daily costs in AWS Console
+   # Know what you're about to stop paying for
+   ```
+
+#### During Destruction
+
+1. **Use the Safe Script**
+   - Run `./destroy.sh` instead of direct `terraform destroy`
+   - Script provides confirmations and safety checks
+
+2. **Watch for Errors**
+   - Some resources may fail to delete
+   - Note any errors for manual cleanup
+
+3. **Be Patient**
+   - Destruction takes 10-20 minutes
+   - Some services (EKS, MSK) take longer to delete
+
+#### After Destruction
+
+1. **Verify in AWS Console**
+   - Check EKS clusters are gone
+   - Check MSK clusters are gone
+   - Check DocumentDB clusters are gone
+   - Check VPC is deleted
+
+2. **Check Billing**
+   ```bash
+   # Wait 24 hours
+   # Check AWS Cost Explorer
+   # Verify no charges
+   ```
+
+3. **Clean Up State Files**
+   ```bash
+   # Optional: Remove local state if using remote backend
+   rm -rf .terraform/
+   rm -f terraform.tfstate*
+   ```
+
+---
+
+### Troubleshooting Destruction
+
+#### Issue: "Error: Resource still in use"
+
+**Problem**: Resource cannot be deleted because another resource depends on it.
+
+**Solution**:
+```bash
+# Check what's using the resource
+terraform state list
+
+# Destroy dependent resources first
+terraform destroy -target=<dependent-resource>
+
+# Then destroy the resource
+terraform destroy -target=<resource>
+```
+
+#### Issue: "Error: Timeout waiting for cluster deletion"
+
+**Problem**: EKS/MSK clusters take a long time to delete.
+
+**Solution**:
+```bash
+# Wait longer (clusters can take 15-30 minutes to delete)
+# Check AWS Console for cluster status
+# Run terraform destroy again if needed
+```
+
+#### Issue: "Error: VPC has dependent resources"
+
+**Problem**: VPC cannot be deleted until all resources are removed.
+
+**Solution**:
+```bash
+# Destroy all resources first
+terraform destroy
+
+# If VPC still won't delete, check AWS Console manually
+# Some resources may need manual deletion
+```
+
+#### Issue: Resources Still Exist After Destroy
+
+**Problem**: Some resources remain in AWS Console.
+
+**Solution**:
+```bash
+# Check Terraform state
+terraform state list
+
+# If resources exist in state but not AWS, refresh
+terraform refresh
+
+# If resources exist in AWS but not state, import them
+terraform import <resource-address> <resource-id>
+
+# Then destroy again
+terraform destroy -target=<resource-address>
+```
+
+---
+
+### Complete Orchestration Workflow
+
+#### Full Deployment & Destruction Cycle
+
+```bash
+# ============================================================
+# PHASE 1: DEPLOYMENT
+# ============================================================
+
+cd terraform
+
+# 1. Initialize
+terraform init
+
+# 2. Configure
+cp terraform.tfvars.example terraform.tfvars
+# Edit terraform.tfvars
+
+# 3. Plan
+terraform plan -out=tfplan
+
+# 4. Review plan (check costs!)
+cat tfplan  # or review in terminal
+
+# 5. Apply
+terraform apply tfplan
+
+# 6. Get outputs (connection strings, endpoints)
+terraform output
+
+# ============================================================
+# PHASE 2: USAGE
+# ============================================================
+
+# Deploy your applications to EKS
+# Connect to services using outputs from terraform output
+
+# ============================================================
+# PHASE 3: CLEANUP
+# ============================================================
+
+# 1. Backup any important data
+# 2. Review costs
+# 3. Destroy using safe script
+./destroy.sh
+
+# OR destroy directly (if you're sure)
+terraform destroy
+
+# 4. Verify in AWS Console
+# 5. Check billing after 24 hours
+```
+
+---
+
+### Quick Reference Commands
+
+#### Deployment Commands
+
+```bash
+# Initialize
+terraform init
+
+# Plan deployment
+terraform plan
+
+# Apply changes
+terraform apply
+
+# Show current state
+terraform show
+
+# List all resources
+terraform state list
+
+# Show outputs
+terraform output
+```
+
+#### Destruction Commands
+
+```bash
+# Safe destroy (recommended)
+./destroy.sh
+
+# Plan destruction (dry run)
+terraform plan -destroy
+
+# Destroy with confirmation
+terraform destroy
+
+# Destroy specific resource
+terraform destroy -target=module.msk
+
+# Force destroy (dangerous - no confirmations)
+terraform destroy -auto-approve
+```
+
+#### Verification Commands
+
+```bash
+# Verify AWS credentials
+aws sts get-caller-identity
+
+# List EKS clusters
+aws eks list-clusters
+
+# List MSK clusters
+aws kafka list-clusters
+
+# List DocumentDB clusters
+aws docdb describe-db-clusters
+
+# Check costs
+aws ce get-cost-and-usage \
+  --time-period Start=2025-01-01,End=2025-01-15 \
+  --granularity DAILY \
+  --metrics "BlendedCost"
+```
+
+---
+
+### Resource Dependencies Map
+
+Understanding dependencies helps with selective destruction:
+
+```
+VPC
+├── EKS (needs VPC subnets + security groups)
+├── MSK (needs VPC subnets + security groups)
+├── Redis (needs VPC subnets + security groups)
+├── DocumentDB (needs VPC subnets + security groups)
+├── ALB (needs VPC public subnets + security groups)
+└── NAT Gateway (needs VPC public subnet)
+
+KMS
+├── EKS (needs encryption key)
+├── MSK (needs encryption key)
+├── Redis (needs encryption key)
+├── DocumentDB (needs encryption key)
+└── S3 (needs encryption key)
+
+ALB
+└── EKS (routes traffic to EKS pods)
+
+EKS
+├── MSK (EKS pods connect to MSK)
+├── Redis (EKS pods connect to Redis)
+└── DocumentDB (EKS pods connect to DocumentDB)
+```
+
+**Rule**: Always destroy dependent resources before their dependencies.
+
+---
+
 *Last Updated: January 2025*
 
